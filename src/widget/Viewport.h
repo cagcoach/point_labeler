@@ -14,6 +14,7 @@
 #include <QtCore/QTime>
 #include <QtCore/QTimer>
 #include <QtGui/QMouseEvent>
+#include <QtGui/QWheelEvent>
 #include <QtOpenGL/QGLWidget>
 
 #include <GL/gl.h>
@@ -129,6 +130,7 @@ class Viewport : public QGLWidget {
   void mousePressEvent(QMouseEvent*);
   void mouseReleaseEvent(QMouseEvent*);
   void mouseMoveEvent(QMouseEvent*);
+  void wheelEvent(QWheelEvent*);
   void keyPressEvent(QKeyEvent*);
 
   glow::GlCamera::KeyboardModifier resolveKeyboardModifier(Qt::KeyboardModifiers modifiers);

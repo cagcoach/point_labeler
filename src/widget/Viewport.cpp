@@ -651,6 +651,34 @@ std::ostream& operator<<(std::ostream& os, const vec2& v) {
   return os;
 }
 
+void Viewport::wheelEvent(QWheelEvent* event) {
+   
+  mChangeCamera = false;
+
+  if (event->modifiers() == Qt::ControlModifier || mMode == PAINT || polygonPoints_.empty()) {
+      
+      QPoint numPixels = event->pixelDelta();
+      QPoint numDegrees = event->angleDelta() / 8.;
+      float delta;
+
+      if (!numPixels.isNull()) {
+          delta = numPixels.y();
+      } else if (!numDegrees.isNull()) {
+          delta = numDegrees.y() / 15.;
+      }
+
+      mCamera.wheelEvent(delta,  resolveKeyboardModifier(event->modifiers()));
+      mChangeCamera = true;
+      polygonPoints_.clear();  // start over again.#
+      bufPolygonPoints_.assign(polygonPoints_);
+      bufTriangles_.resize(0);
+      
+  }
+   this->updateGL();
+   return;
+  
+}
+
 void Viewport::mousePressEvent(QMouseEvent* event) {
   // if camera consumes the signal, simply return. // here we could also include some remapping.
 
@@ -659,7 +687,7 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
   if (event->modifiers() == Qt::ControlModifier) {
     if (mCamera.mousePressed(event->windowPos().x(), event->windowPos().y(), resolveMouseButton(event->buttons()),
                              resolveKeyboardModifier(event->modifiers()))) {
-      timer_.start(1. / 30.);
+      timer_.start(1. / 60.);
       mChangeCamera = true;
       polygonPoints_.clear();  // start over again.#
       bufPolygonPoints_.assign(polygonPoints_);
@@ -673,6 +701,8 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
       labelPoints(event->x(), event->y(), mRadius, mCurrentLabel);
     else if (event->buttons() & Qt::RightButton)
       labelPoints(event->x(), event->y(), mRadius, 0);
+    else
+      mCamera.mousePressed(event->windowPos().x(), event->windowPos().y(), resolveMouseButton(event->buttons()), resolveKeyboardModifier(event->modifiers()));
 
     updateGL();
   } else if (mMode == POLYGON) {
@@ -735,6 +765,8 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
 
         labelPoints(event->x(), event->y(), 0, mCurrentLabel);
       }
+      else
+         mCamera.mousePressed(event->windowPos().x(), event->windowPos().y(), resolveMouseButton(event->buttons()), resolveKeyboardModifier(event->modifiers()));
 
       polygonPoints_.clear();
     }
