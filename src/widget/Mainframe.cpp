@@ -181,8 +181,8 @@ void Mainframe::open() {
     ui.btnForward->setEnabled(false);
     if (reader_.count() > 0) ui.btnForward->setEnabled(true);
 
-    //    if (ui.sldTimeline->value() == 0) setCurrentScanIdx(0);
-    //    ui.sldTimeline->setValue(0);
+    ui.mViewportXYZ->setCalibration(reader_.calibration());
+
     const auto& tile = reader_.getTile(Eigen::Vector3f::Zero());
     readerFuture_ = std::async(std::launch::async, &Mainframe::readAsync, this, tile.i, tile.j);
     ui.wgtTileSelector->initialize(reader_.getTiles(), reader_.numTiles().x(), reader_.numTiles().y());
@@ -212,7 +212,7 @@ void Mainframe::save() {
   info.layout()->addWidget(new QLabel("Please wait while writing labels to disk."));
 
   info.show();
-  info.update();
+  //  info.update();
 
   statusBar()->showMessage("Writing labels...");
   ui.mViewportXYZ->updateLabels();
@@ -420,6 +420,7 @@ void Mainframe::setCurrentScanIdx(int32_t idx) {
   ui.mViewportXYZ->setDrawingOption("show camera", wImgWidget_->isVisible());
   ui.mViewportXYZ->setScanIndex(idx);
   if (images_.size() > uint32_t(idx)) wImgWidget_->setImage(images_[idx]);
+  if (labelImages_.size() > uint32_t(idx)) wImgWidget_->setLabels(labelImages_[idx]);
 }
 
 void Mainframe::readAsync(uint32_t i, uint32_t j) {
@@ -434,7 +435,7 @@ void Mainframe::readAsync(uint32_t i, uint32_t j) {
   std::vector<uint32_t> oldIndexes = indexes_;
   std::vector<LabelsPtr> oldLabels = labels_;
 
-  reader_.retrieve(i, j, indexes, points, labels, images);
+  reader_.retrieve(i, j, indexes, points, labels, images, labelImages_);
 
   indexes_ = indexes;
   points_ = points;
@@ -482,7 +483,7 @@ void Mainframe::updateScans() {
 
   statusBar()->clearMessage();
 
-  ui.mViewportXYZ->setPoints(points_, labels_);
+  ui.mViewportXYZ->setPoints(points_, labels_, images_, labelImages_);
   ui.sldTimeline->setMaximum(indexes_.size());
   ui.sldTimeline->setValue(0);
   ui.wgtTileSelector->setEnabled(true);

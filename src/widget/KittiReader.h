@@ -26,9 +26,9 @@
 class KittiReader {
  public:
   struct Tile {
-    int32_t i, j; // tile coordinates
-    std::vector<uint32_t> indexes; // scan indexes
-    float x, y, size; // actual world coordinates.
+    int32_t i, j;                   // tile coordinates
+    std::vector<uint32_t> indexes;  // scan indexes
+    float x, y, size;               // actual world coordinates.
   };
 
   /** \brief get poses and filenames of velodyne, labels, etc.
@@ -43,11 +43,13 @@ class KittiReader {
 
   /** \brief get points, labels, and images for given world coordinates. **/
   void retrieve(const Eigen::Vector3f& position, std::vector<uint32_t>& indexes, std::vector<PointcloudPtr>& points,
-                std::vector<LabelsPtr>& labels, std::vector<std::string>& images);
+                std::vector<LabelsPtr>& labels, std::vector<std::string>& images,
+                std::vector<std::string>& labelImages);
 
   /** \brief get points, labels, and images for given indexes. **/
   void retrieve(uint32_t i, uint32_t j, std::vector<uint32_t>& indexes, std::vector<PointcloudPtr>& points,
-                std::vector<LabelsPtr>& labels, std::vector<std::string>& images);
+                std::vector<LabelsPtr>& labels, std::vector<std::string>& images,
+                std::vector<std::string>& labelImages);
 
   /** \brief update labels for given scan indexes. **/
   void update(const std::vector<uint32_t>& indexes, std::vector<LabelsPtr>& labels);
@@ -63,6 +65,8 @@ class KittiReader {
 
   const std::vector<Eigen::Vector2f>& getTileTrajectory() const { return trajectory_; }
 
+  const KITTICalibration& calibration() const { return calib_; }
+
  protected:
   void readPoints(const std::string& filename, Laserscan& scan);
   void readLabels(const std::string& filename, std::vector<uint32_t>& labels);
@@ -73,6 +77,7 @@ class KittiReader {
   std::vector<std::string> velodyne_filenames_;
   std::vector<std::string> label_filenames_;
   std::vector<std::string> image_filenames_;
+  std::vector<std::string> imageLabel_filenames_;
 
   // cache reads from before.
   std::map<uint32_t, PointcloudPtr> pointsCache_;

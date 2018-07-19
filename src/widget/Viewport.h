@@ -32,6 +32,7 @@
 #include "common.h"
 
 #include "data/geometry.h"
+#include "data/kitti_utils.h"
 
 /** \brief Canvas for visualizing point clouds.
  *
@@ -58,7 +59,8 @@ class Viewport : public QGLWidget {
   void setMaximumScans(uint32_t numScans);
 
   /** \brief set points and initialize buffers with data inside the tile. **/
-  void setPoints(const std::vector<PointcloudPtr>& points, std::vector<LabelsPtr>& labels);
+  void setPoints(const std::vector<PointcloudPtr>& points, std::vector<LabelsPtr>& labels,
+                 std::vector<std::string>& images, std::vector<std::string>& labelImages);
 
   /** \brief update all labels with GPU labels. **/
   void updateLabels();
@@ -78,6 +80,8 @@ class Viewport : public QGLWidget {
   void setTileInfo(float x, float y, float tileSize);
 
   void centerOnCurrentTile();
+
+  void setCalibration(const KITTICalibration& calib) { calib_ = calib; }
 
  signals:
   void labelingChanged();
@@ -171,6 +175,9 @@ class Viewport : public QGLWidget {
   glow::GlBuffer<uint32_t> bufVisible_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
   glow::GlBuffer<glow::vec2> bufScanIndexes_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
 
+  glow::GlBuffer<glow::vec3> bufColor_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
+  glow::GlBuffer<uint32_t> bufRGBLabels_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
+
   // buffers used for copying points to tile buffers.
   glow::GlBuffer<Point3f> bufTempPoints_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
   glow::GlBuffer<float> bufTempRemissions_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
@@ -184,6 +191,7 @@ class Viewport : public QGLWidget {
   glow::GlBuffer<uint32_t> bufUpdatedVisiblity_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
 
   glow::GlTransformFeedback tfFillTilePoints_;
+  glow::GlTransformFeedback tfFillRGBValues_;
 
   glow::GlTextureRectangle texLabelColors_;
 
@@ -199,6 +207,7 @@ class Viewport : public QGLWidget {
   glow::GlProgram prgUpdateVisibility_;
   glow::GlProgram prgPolygonPoints_;
   glow::GlProgram prgFillTilePoints_;
+  glow::GlProgram prgFillTileRGB_;
   glow::GlProgram prgDrawFrustum_;
 
   glow::GlFramebuffer fbMinimumHeightMap_;
@@ -239,6 +248,10 @@ class Viewport : public QGLWidget {
   };
 
   std::vector<ScanInfo> scanInfos_;
+  KITTICalibration calib_;
+
+  glow::GlTexture texImage_{1241, 376, glow::TextureFormat::RGB};
+  glow::GlTexture texLabels_{1241, 376, glow::TextureFormat::RGB};
 };
 
 #endif /* POINTVIEW_H_ */

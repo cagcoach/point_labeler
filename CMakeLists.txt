@@ -62,6 +62,8 @@ COMPILE_SHADERS(${VIZ_SHADER_SRC}
   src/shaders/draw_pose.geom
   src/shaders/fill_tile_points.geom
   src/shaders/fill_tile_points.vert
+  src/shaders/fill_tile_rgb.geom
+  src/shaders/fill_tile_rgb.vert
   src/shaders/draw_points.vert
   src/shaders/draw_polygon.vert
   src/shaders/update_visibility.vert

@@ -48,6 +48,9 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
   bufLabels_.resize(max_size);
   bufScanIndexes_.resize(max_size);
 
+  bufColor_.resize(max_size);
+  bufRGBLabels_.resize(max_size);
+
   bufTempPoints_.reserve(maxPointsPerScan_);
   bufTempRemissions_.reserve(maxPointsPerScan_);
   bufTempLabels_.reserve(maxPointsPerScan_);
@@ -72,6 +75,9 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
   tfFillTilePoints_.attach({"out_label"}, bufLabels_);
   tfFillTilePoints_.attach({"out_visible"}, bufVisible_);
   tfFillTilePoints_.attach({"out_scanindex"}, bufScanIndexes_);
+
+  tfFillRGBValues_.attach({"out_color"}, bufColor_);
+  tfFillRGBValues_.attach({"out_label"}, bufRGBLabels_);
 
   initPrograms();
   initVertexBuffers();
@@ -144,6 +150,12 @@ void Viewport::initPrograms() {
   prgFillTilePoints_.attach(tfFillTilePoints_);
   prgFillTilePoints_.link();
 
+  prgFillTileRGB_.attach(GlShader::fromCache(ShaderType::VERTEX_SHADER, "shaders/fill_tile_rgb.vert"));
+  prgFillTileRGB_.attach(GlShader::fromCache(ShaderType::GEOMETRY_SHADER, "shaders/fill_tile_rgb.geom"));
+  prgFillTileRGB_.attach(GlShader::fromCache(ShaderType::FRAGMENT_SHADER, "shaders/empty.frag"));
+  prgFillTileRGB_.attach(tfFillRGBValues_);
+  prgFillTileRGB_.link();
+
   prgDrawFrustum_.attach(GlShader::fromCache(ShaderType::VERTEX_SHADER, "shaders/empty.vert"));
   prgDrawFrustum_.attach(GlShader::fromCache(ShaderType::GEOMETRY_SHADER, "shaders/draw_frustum.geom"));
   prgDrawFrustum_.attach(GlShader::fromCache(ShaderType::FRAGMENT_SHADER, "shaders/passthrough.frag"));
@@ -192,7 +204,21 @@ void Viewport::setMaximumScans(uint32_t numScans) {
   std::cout << "mem size: " << float(memTile) / (1000 * 1000) << " MB" << std::endl;
 }
 
-void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<LabelsPtr>& l) {
+namespace Eigen {
+typedef Matrix<float, 3, 4> Matrix3x4f;
+}
+
+namespace glow {
+template <>
+void GlUniform<Eigen::Matrix3x4f>::bind(GLuint program_id) const {
+  GLint loc = glGetUniformLocation(program_id, name_.c_str());
+  //  assert(loc >= 0 && "Warning: Uniform unknown or unused in program.");
+  glUniformMatrix4x3fv(loc, 1, GL_FALSE, data_.data());
+}
+}
+
+void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<LabelsPtr>& l, std::vector<std::string>& i,
+                         std::vector<std::string>& labelImages) {
   std::cout << "Setting points..." << std::flush;
 
   glow::_CheckGlError(__FILE__, __LINE__);
@@ -249,6 +275,55 @@ void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<Labels
     }
 
     uint32_t numCopiedPoints = tfFillTilePoints_.end();
+
+    if (i.size() > 0 || labelImages.size() > 0) {
+      tfFillRGBValues_.begin(TransformFeedbackMode::POINTS);
+
+      prgFillTileRGB_.setUniform(GlUniform<Eigen::Matrix4f>("Tr", calib_["Tr"]));
+      Eigen::Matrix3x4f p2 = calib_["P2"].topLeftCorner(3, 4);
+      prgFillTileRGB_.setUniform(GlUniform<Eigen::Matrix3x4f>("P2", p2));
+
+      prgFillTileRGB_.setUniform(GlUniform<float>("width", 1241));
+      prgFillTileRGB_.setUniform(GlUniform<float>("height", 376));
+
+      prgFillTileRGB_.setUniform(GlUniform<int32_t>("texImage", 0));
+      prgFillTileRGB_.setUniform(GlUniform<int32_t>("texLabel", 1));
+
+      for (uint32_t t = 0; t < points_.size(); ++t) {
+        if (i.size() > t) {
+          QImage img(QString::fromStdString(i[t]));
+
+          texImage_.assign(PixelFormat::RGB, PixelType::UNSIGNED_BYTE, img.bits());
+        }
+
+        if (labelImages.size() > 0) {
+          QImage img(QString::fromStdString(labelImages[t]));
+          texLabels_.assign(PixelFormat::RGB, PixelType::UNSIGNED_BYTE, img.bits());
+        }
+
+        prgFillTileRGB_.setUniform(GlUniform<float>("maxRange", maxRange_));
+        prgFillTileRGB_.setUniform(GlUniform<Eigen::Matrix4f>("pose", points_[t]->pose));
+
+        glActiveTexture(GL_TEXTURE0);
+        ScopedBinder<GlTexture> bind1(texImage_);
+        glActiveTexture(GL_TEXTURE1);
+        ScopedBinder<GlTexture> bind2(texLabels_);
+        glActiveTexture(GL_TEXTURE0);
+
+        // copy data from CPU -> GPU.
+        bufTempPoints_.assign(points_[t]->points);
+
+        prgFillTileRGB_.setUniform(GlUniform<uint32_t>("scan", t));
+
+        // extract tile points.
+        glDrawArrays(GL_POINTS, 0, points_[t]->size());
+      }
+
+      uint32_t numCopiedPoints = tfFillRGBValues_.end();
+
+      bufColor_.resize(numCopiedPoints);
+      bufRGBLabels_.resize(numCopiedPoints);
+    }
 
     glDisable(GL_RASTERIZER_DISCARD);
 
