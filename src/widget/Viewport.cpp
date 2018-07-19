@@ -4,6 +4,7 @@
 #include "data/misc.h"
 
 #include <glow/GlCapabilities.h>
+#include <glow/GlSampler.h>
 #include <glow/ScopedBinder.h>
 #include <glow/glutil.h>
 #include <QtWidgets/QMessageBox>
@@ -217,6 +218,20 @@ void GlUniform<Eigen::Matrix3x4f>::bind(GLuint program_id) const {
 }
 }
 
+void convertImg2Bytes(const QImage& img, std::vector<uint8_t>& pixels) {
+  int32_t w = img.width();
+  int32_t h = img.height();
+
+  for (int32_t x = 0; x < w; ++x) {
+    for (int32_t y = 0; y < h; ++y) {
+      QRgb pix = img.pixel(x, y);
+      pixels[3 * (x + y * w)] = qRed(pix);
+      pixels[3 * (x + y * w) + 1] = qGreen(pix);
+      pixels[3 * (x + y * w) + 2] = qBlue(pix);
+    }
+  }
+}
+
 void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<LabelsPtr>& l, std::vector<std::string>& i,
                          std::vector<std::string>& labelImages) {
   std::cout << "Setting points..." << std::flush;
@@ -230,53 +245,79 @@ void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<Labels
 
   {
     ScopedBinder<GlVertexArray> vaoBinder(vao_temp_points_);
-    ScopedBinder<GlProgram> programBinder(prgFillTilePoints_);
-    ScopedBinder<GlTransformFeedback> feedbackBinder(tfFillTilePoints_);
 
-    glow::_CheckGlError(__FILE__, __LINE__);
+    uint32_t numCopiedPoints = 0;
 
-    prgFillTilePoints_.setUniform(GlUniform<float>("maxRange", maxRange_));
-    prgFillTilePoints_.setUniform(GlUniform<float>("minRange", minRange_));
-    prgFillTilePoints_.setUniform(GlUniform<vec2>("tilePos", tilePos_));
-    prgFillTilePoints_.setUniform(GlUniform<float>("tileSize", tileSize_));
-    prgFillTilePoints_.setUniform(GlUniform<float>("tileBoundary", tileBoundary_));
+    {
+      ScopedBinder<GlProgram> programBinder(prgFillTilePoints_);
+      ScopedBinder<GlTransformFeedback> feedbackBinder(tfFillTilePoints_);
 
-    glEnable(GL_RASTERIZER_DISCARD);
+      glow::_CheckGlError(__FILE__, __LINE__);
 
-    tfFillTilePoints_.begin(TransformFeedbackMode::POINTS);
-
-    for (uint32_t t = 0; t < points_.size(); ++t) {
       prgFillTilePoints_.setUniform(GlUniform<float>("maxRange", maxRange_));
-      prgFillTilePoints_.setUniform(GlUniform<Eigen::Matrix4f>("pose", points_[t]->pose));
+      prgFillTilePoints_.setUniform(GlUniform<float>("minRange", minRange_));
+      prgFillTilePoints_.setUniform(GlUniform<vec2>("tilePos", tilePos_));
+      prgFillTilePoints_.setUniform(GlUniform<float>("tileSize", tileSize_));
+      prgFillTilePoints_.setUniform(GlUniform<float>("tileBoundary", tileBoundary_));
 
-      uint32_t num_points = points_[t]->size();
+      glEnable(GL_RASTERIZER_DISCARD);
 
-      std::vector<uint32_t> visible(num_points, 1);
+      tfFillTilePoints_.begin(TransformFeedbackMode::POINTS);
 
-      for (uint32_t i = 0; i < num_points; ++i) {
-        if (std::find(mFilteredLabels.begin(), mFilteredLabels.end(), (*labels_[t])[i]) != mFilteredLabels.end()) {
-          visible[i] = 0;
+      for (uint32_t t = 0; t < points_.size(); ++t) {
+        prgFillTilePoints_.setUniform(GlUniform<float>("maxRange", maxRange_));
+        prgFillTilePoints_.setUniform(GlUniform<Eigen::Matrix4f>("pose", points_[t]->pose));
+
+        uint32_t num_points = points_[t]->size();
+
+        std::vector<uint32_t> visible(num_points, 1);
+
+        for (uint32_t i = 0; i < num_points; ++i) {
+          if (std::find(mFilteredLabels.begin(), mFilteredLabels.end(), (*labels_[t])[i]) != mFilteredLabels.end()) {
+            visible[i] = 0;
+          }
         }
+
+        // copy data from CPU -> GPU.
+        bufTempPoints_.assign(points_[t]->points);
+        if (points_[t]->hasRemissions())
+          bufTempRemissions_.assign(points_[t]->remissions);
+        else
+          bufTempRemissions_.assign(std::vector<float>(points_[t]->size(), 1.0f));
+        bufTempLabels_.assign(*(labels_[t]));
+        bufTempVisible_.assign(visible);
+
+        prgFillTilePoints_.setUniform(GlUniform<uint32_t>("scan", t));
+
+        // extract tile points.
+        glDrawArrays(GL_POINTS, 0, points_[t]->size());
       }
 
-      // copy data from CPU -> GPU.
-      bufTempPoints_.assign(points_[t]->points);
-      if (points_[t]->hasRemissions())
-        bufTempRemissions_.assign(points_[t]->remissions);
-      else
-        bufTempRemissions_.assign(std::vector<float>(points_[t]->size(), 1.0f));
-      bufTempLabels_.assign(*(labels_[t]));
-      bufTempVisible_.assign(visible);
+      numCopiedPoints = tfFillTilePoints_.end();
 
-      prgFillTilePoints_.setUniform(GlUniform<uint32_t>("scan", t));
+      bufPoints_.resize(numCopiedPoints);
+      bufLabels_.resize(numCopiedPoints);
+      bufVisible_.resize(numCopiedPoints);
+      bufScanIndexes_.resize(numCopiedPoints);
 
-      // extract tile points.
-      glDrawArrays(GL_POINTS, 0, points_[t]->size());
+      glow::_CheckGlError(__FILE__, __LINE__);
     }
 
-    uint32_t numCopiedPoints = tfFillTilePoints_.end();
-
     if (i.size() > 0 || labelImages.size() > 0) {
+      ScopedBinder<GlProgram> programBinder(prgFillTileRGB_);
+      ScopedBinder<GlTransformFeedback> feedbackBinder(tfFillRGBValues_);
+
+      GlSampler linear;
+      linear.setMinifyingOperation(TexMinOp::LINEAR);
+      linear.setMagnifyingOperation(TexMagOp::LINEAR);
+      GlSampler nearest;
+      nearest.setMinifyingOperation(TexMinOp::NEAREST);
+      nearest.setMagnifyingOperation(TexMagOp::NEAREST);
+
+      linear.bind(0);
+      nearest.bind(1);
+
+      std::cout << "Reading RGB information..." << std::flush;
       tfFillRGBValues_.begin(TransformFeedbackMode::POINTS);
 
       prgFillTileRGB_.setUniform(GlUniform<Eigen::Matrix4f>("Tr", calib_["Tr"]));
@@ -289,16 +330,20 @@ void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<Labels
       prgFillTileRGB_.setUniform(GlUniform<int32_t>("texImage", 0));
       prgFillTileRGB_.setUniform(GlUniform<int32_t>("texLabel", 1));
 
+      std::vector<uint8_t> pixels(3 * texImage_.width() * texImage_.height());
       for (uint32_t t = 0; t < points_.size(); ++t) {
         if (i.size() > t) {
           QImage img(QString::fromStdString(i[t]));
 
-          texImage_.assign(PixelFormat::RGB, PixelType::UNSIGNED_BYTE, img.bits());
+          convertImg2Bytes(img, pixels);
+          texImage_.assign(PixelFormat::RGB, PixelType::UNSIGNED_BYTE, pixels.data());
         }
 
         if (labelImages.size() > 0) {
           QImage img(QString::fromStdString(labelImages[t]));
-          texLabels_.assign(PixelFormat::RGB, PixelType::UNSIGNED_BYTE, img.bits());
+
+          convertImg2Bytes(img, pixels);
+          texLabels_.assign(PixelFormat::RGB, PixelType::UNSIGNED_BYTE, pixels.data());
         }
 
         prgFillTileRGB_.setUniform(GlUniform<float>("maxRange", maxRange_));
@@ -323,14 +368,16 @@ void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<Labels
 
       bufColor_.resize(numCopiedPoints);
       bufRGBLabels_.resize(numCopiedPoints);
+
+      std::cout << "finished." << std::endl;
+
+      linear.release(0);
+      nearest.release(0);
+
+      glow::_CheckGlError(__FILE__, __LINE__);
     }
 
     glDisable(GL_RASTERIZER_DISCARD);
-
-    bufPoints_.resize(numCopiedPoints);
-    bufLabels_.resize(numCopiedPoints);
-    bufVisible_.resize(numCopiedPoints);
-    bufScanIndexes_.resize(numCopiedPoints);
 
     // get per scan information from  scan indexes.
     scanInfos_.clear();

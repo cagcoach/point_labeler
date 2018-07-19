@@ -96,6 +96,10 @@ add_executable(labeler
   src/widget/ImageViewer.cpp
 )
 
+add_executable(playground
+  src/playground.cpp
+)
+
 if(NOT GTEST_FOUND)
  
   IF(IS_DIRECTORY "/usr/src/gtest/")
@@ -120,4 +124,4 @@ if(GTEST_FOUND)
 endif()
 
 target_link_libraries(labeler ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} pthread Qt5::Xml Qt5::OpenGL Qt5::Widgets)
-
+target_link_libraries(playground ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} pthread Qt5::Xml Qt5::OpenGL Qt5::Widgets)

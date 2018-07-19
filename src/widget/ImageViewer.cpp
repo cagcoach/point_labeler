@@ -46,6 +46,8 @@ void ImageViewer::setLabels(const std::string& filename) {
     }
   }
   currentLabels_.fromImage(img);
+
+  currentLabels_.save("labels.png");
   update();
 }
 
