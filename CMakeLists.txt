@@ -100,6 +100,18 @@ add_executable(playground
   src/playground.cpp
 )
 
+add_executable(gen_colors
+  src/gen_colors.cpp
+  src/rv/string_utils.cpp
+  src/data/kitti_utils.cpp
+)
+
+add_executable(gen_labels
+  src/gen_labels.cpp
+  src/rv/string_utils.cpp
+  src/data/kitti_utils.cpp
+)
+
 if(NOT GTEST_FOUND)
  
   IF(IS_DIRECTORY "/usr/src/gtest/")
@@ -125,3 +137,6 @@ endif()
 
 target_link_libraries(labeler ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} pthread Qt5::Xml Qt5::OpenGL Qt5::Widgets)
 target_link_libraries(playground ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} pthread Qt5::Xml Qt5::OpenGL Qt5::Widgets)
+target_link_libraries(gen_colors ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} pthread Qt5::Xml Qt5::OpenGL Qt5::Widgets)
+target_link_libraries(gen_labels ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} pthread Qt5::Xml Qt5::OpenGL Qt5::Widgets)
+
