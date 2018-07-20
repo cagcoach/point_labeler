@@ -12,6 +12,8 @@ void KittiReader::initialize(const QString& directory) {
   velodyne_filenames_.clear();
   label_filenames_.clear();
   image_filenames_.clear();
+  color_filenames_.clear();
+  imageLabel_filenames_.clear();
   poses_.clear();
 
   QDir base_dir(directory);
@@ -64,15 +66,23 @@ void KittiReader::initialize(const QString& directory) {
     }
   }
 
-  QDir labelimage_dir(base_dir.filePath("image_labels"));
-  if (labelimage_dir.exists()) {
-    for (uint32_t i = 0; i < velodyne_filenames_.size(); ++i) {
-      QString filename = QFileInfo(QString::fromStdString(velodyne_filenames_[i])).baseName() + ".png";
-      if (labelimage_dir.exists(filename)) {
-        imageLabel_filenames_.push_back(labelimage_dir.filePath(filename).toStdString());
-      } else {
-        imageLabel_filenames_.push_back(missing_img);
-      }
+  QDir colors_dir(base_dir.filePath("color"));
+  for (uint32_t i = 0; i < velodyne_filenames_.size(); ++i) {
+    QString filename = QFileInfo(QString::fromStdString(velodyne_filenames_[i])).baseName() + ".rgb";
+    if (!colors_dir.exists(filename))
+      color_filenames_.push_back("missing");
+    else {
+      color_filenames_.push_back(colors_dir.filePath(filename).toStdString());
+    }
+  }
+
+  QDir imageLabel_dir(base_dir.filePath("image_labels"));
+  for (uint32_t i = 0; i < velodyne_filenames_.size(); ++i) {
+    QString filename = QFileInfo(QString::fromStdString(velodyne_filenames_[i])).baseName() + ".label";
+    if (!colors_dir.exists(filename))
+      imageLabel_filenames_.push_back("missing");
+    else {
+      imageLabel_filenames_.push_back(imageLabel_dir.filePath(filename).toStdString());
     }
   }
 
@@ -180,20 +190,22 @@ void KittiReader::initialize(const QString& directory) {
 
 void KittiReader::retrieve(const Eigen::Vector3f& position, std::vector<uint32_t>& indexes,
                            std::vector<PointcloudPtr>& points, std::vector<LabelsPtr>& labels,
-                           std::vector<std::string>& images, std::vector<std::string>& labelImages) {
+                           std::vector<std::string>& images, std::vector<ColorsPtr>& colors,
+                           std::vector<LabelsPtr>& imageLabels) {
   Eigen::Vector2f idx((position.x() + offset_.x()) / tileSize_, (position.y() + offset_.y()) / tileSize_);
 
-  retrieve(idx.x(), idx.y(), indexes, points, labels, images, labelImages);
+  retrieve(idx.x(), idx.y(), indexes, points, labels, images, colors, imageLabels);
 }
 
 void KittiReader::retrieve(uint32_t i, uint32_t j, std::vector<uint32_t>& indexes, std::vector<PointcloudPtr>& points,
                            std::vector<LabelsPtr>& labels, std::vector<std::string>& images,
-                           std::vector<std::string>& labelImages) {
+                           std::vector<ColorsPtr>& colors, std::vector<LabelsPtr>& imageLabels) {
   indexes.clear();
   points.clear();
   labels.clear();
   images.clear();
-  labelImages.clear();
+  colors.clear();
+  imageLabels.clear();
 
   std::vector<int32_t> indexesBefore;
   for (auto it = pointsCache_.begin(); it != pointsCache_.end(); ++it) indexesBefore.push_back(it->first);
@@ -212,11 +224,27 @@ void KittiReader::retrieve(uint32_t i, uint32_t j, std::vector<uint32_t>& indexe
       pointsCache_[t] = points.back();
       points.back()->pose = poses_[t];
 
+      uint32_t num_points = points.back()->size();
+
+      colors.push_back(std::shared_ptr<std::vector<glow::vec3>>(new std::vector<glow::vec3>()));
+      colorCache_[t] = colors.back();
+      if (color_filenames_[t] != "missing") {
+        readColors(color_filenames_[t], *colors.back());
+      } else {
+        // fill with default values from remission.
+        auto& vec = *colors.back();
+        vec.resize(num_points);
+        for (uint32_t i = 0; i < num_points; ++i) {
+          float r = points.back()->remissions[i];
+          vec[i] = glow::vec3(r, r, r);
+        }
+      }
+
       labels.push_back(std::shared_ptr<std::vector<uint32_t>>(new std::vector<uint32_t>()));
       readLabels(label_filenames_[t], *labels.back());
       labelCache_[t] = labels.back();
 
-      if (points.back()->size() != labels.back()->size()) {
+      if (num_points != labels.back()->size()) {
         std::cout << "Filename: " << velodyne_filenames_[t] << std::endl;
         std::cout << "Filename: " << label_filenames_[t] << std::endl;
         std::cout << "num. points = " << points.back()->size() << " vs. num. labels = " << labels.back()->size()
@@ -224,13 +252,25 @@ void KittiReader::retrieve(uint32_t i, uint32_t j, std::vector<uint32_t>& indexe
         throw std::runtime_error("Inconsistent number of labels.");
       }
 
+      imageLabels.push_back(std::shared_ptr<std::vector<uint32_t>>(new std::vector<uint32_t>()));
+      imageLabelCache_[t] = imageLabels.back();
+      if (imageLabel_filenames_[t] != "missing") {
+        readLabels(imageLabel_filenames_[t], *imageLabels.back());
+      } else {
+        // fill with unlabeled labels.
+        auto& vec = *imageLabels.back();
+        vec.resize(num_points);
+        for (uint32_t i = 0; i < num_points; ++i) vec[i] = 0;
+      }
+
     } else {
       points.push_back(pointsCache_[t]);
       labels.push_back(labelCache_[t]);
+      colors.push_back(colorCache_[t]);
+      imageLabels.push_back(imageLabelCache_[t]);
     }
 
     images.push_back(image_filenames_[t]);
-    if (imageLabel_filenames_.size() > t) labelImages.push_back(imageLabel_filenames_[t]);
   }
 
   std::cout << scansRead << " point clouds read." << std::endl;
@@ -326,4 +366,28 @@ void KittiReader::readPoses(const std::string& filename, std::vector<Eigen::Matr
   for (uint32_t i = 0; i < poses.size(); ++i) {
     poses[i] = Tr_inv * poses[i] * Tr;
   }
+}
+
+void KittiReader::readColors(const std::string& filename, std::vector<glow::vec3>& colors) {
+  std::ifstream in(filename.c_str(), std::ios::binary);
+  if (!in.is_open()) {
+    std::cerr << "Unable to open colors file. " << std::endl;
+    return;
+  }
+
+  colors.clear();
+
+  in.seekg(0, std::ios::end);
+  uint32_t num_points = in.tellg() / (3 * sizeof(uint8_t));
+  in.seekg(0, std::ios::beg);
+
+  colors.resize(num_points);
+  std::vector<uint8_t> data(3 * num_points);
+  in.read((char*)&data[0], data.size());
+
+  for (uint32_t i = 0; i < num_points; ++i) {
+    colors[i] = glow::vec3(data[3 * i] / 255.0f, data[3 * i + 1] / 255.0f, data[3 * i + 2] / 255.0f);
+  }
+
+  in.close();
 }

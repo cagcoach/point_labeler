@@ -420,7 +420,6 @@ void Mainframe::setCurrentScanIdx(int32_t idx) {
   ui.mViewportXYZ->setDrawingOption("show camera", wImgWidget_->isVisible());
   ui.mViewportXYZ->setScanIndex(idx);
   if (images_.size() > uint32_t(idx)) wImgWidget_->setImage(images_[idx]);
-  if (labelImages_.size() > uint32_t(idx)) wImgWidget_->setLabels(labelImages_[idx]);
 }
 
 void Mainframe::readAsync(uint32_t i, uint32_t j) {
@@ -431,16 +430,20 @@ void Mainframe::readAsync(uint32_t i, uint32_t j) {
   std::vector<PointcloudPtr> points;
   std::vector<LabelsPtr> labels;
   std::vector<std::string> images;
+  std::vector<ColorsPtr> colors;
+  std::vector<LabelsPtr> imageLabels;
 
   std::vector<uint32_t> oldIndexes = indexes_;
   std::vector<LabelsPtr> oldLabels = labels_;
 
-  reader_.retrieve(i, j, indexes, points, labels, images, labelImages_);
+  reader_.retrieve(i, j, indexes, points, labels, images, colors, imageLabels);
 
   indexes_ = indexes;
   points_ = points;
   labels_ = labels;
   images_ = images;
+  imageLabels_ = imageLabels;
+  colors_ = colors;
 
   // find difference.
   std::vector<uint32_t> diff_indexes;
@@ -483,7 +486,7 @@ void Mainframe::updateScans() {
 
   statusBar()->clearMessage();
 
-  ui.mViewportXYZ->setPoints(points_, labels_, images_, labelImages_);
+  ui.mViewportXYZ->setPoints(points_, labels_, colors_, imageLabels_);
   ui.sldTimeline->setMaximum(indexes_.size());
   ui.sldTimeline->setValue(0);
   ui.wgtTileSelector->setEnabled(true);

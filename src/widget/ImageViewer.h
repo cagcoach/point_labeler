@@ -14,17 +14,13 @@ class ImageViewer : public QWidget {
   ImageViewer(QWidget* parent = 0, Qt::WindowFlags f = 0);
 
   void setImage(const std::string& filename);
-  void setLabels(const std::string& filename);
 
  protected:
   void paintEvent(QPaintEvent* event);
   void resizeEvent(QResizeEvent* event);
 
-  void keyPressEvent(QKeyEvent* event);
-
   std::string imageFilename;
   QPixmap currentImage_;
-  QPixmap currentLabels_;
   bool showLabels_{false};
 };
 

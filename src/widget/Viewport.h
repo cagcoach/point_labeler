@@ -60,7 +60,7 @@ class Viewport : public QGLWidget {
 
   /** \brief set points and initialize buffers with data inside the tile. **/
   void setPoints(const std::vector<PointcloudPtr>& points, std::vector<LabelsPtr>& labels,
-                 std::vector<std::string>& images, std::vector<std::string>& labelImages);
+                 std::vector<ColorsPtr>& colors, std::vector<LabelsPtr>& imageLabels);
 
   /** \brief update all labels with GPU labels. **/
   void updateLabels();
@@ -183,6 +183,7 @@ class Viewport : public QGLWidget {
   glow::GlBuffer<float> bufTempRemissions_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
   glow::GlBuffer<uint32_t> bufTempLabels_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
   glow::GlBuffer<uint32_t> bufTempVisible_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
+  glow::GlBuffer<glow::vec3> bufTempColor_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW}; // fixme: think about encodign in float.
 
   glow::GlTransformFeedback tfUpdateLabels_;
   glow::GlBuffer<uint32_t> bufUpdatedLabels_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
@@ -249,9 +250,6 @@ class Viewport : public QGLWidget {
 
   std::vector<ScanInfo> scanInfos_;
   KITTICalibration calib_;
-
-  glow::GlTexture texImage_{1241, 376, glow::TextureFormat::RGB};
-  glow::GlTexture texLabels_{1241, 376, glow::TextureFormat::RGB};
 };
 
 #endif /* POINTVIEW_H_ */

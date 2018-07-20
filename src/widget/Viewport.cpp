@@ -169,6 +169,8 @@ void Viewport::initVertexBuffers() {
   vao_points_.setVertexAttribute(0, bufPoints_, 4, AttributeType::FLOAT, false, sizeof(glow::vec4), nullptr);
   vao_points_.setVertexAttribute(1, bufLabels_, 1, AttributeType::UNSIGNED_INT, false, sizeof(uint32_t), nullptr);
   vao_points_.setVertexAttribute(2, bufVisible_, 1, AttributeType::UNSIGNED_INT, false, sizeof(uint32_t), nullptr);
+  vao_points_.setVertexAttribute(3, bufColor_, 3, AttributeType::FLOAT, false, sizeof(glow::vec3), nullptr);
+  vao_points_.setVertexAttribute(4, bufRGBLabels_, 1, AttributeType::UNSIGNED_INT, false, sizeof(uint32_t), nullptr);
 
   vao_temp_points_.setVertexAttribute(0, bufTempPoints_, 3, AttributeType::FLOAT, false, sizeof(Point3f), nullptr);
   vao_temp_points_.setVertexAttribute(1, bufTempRemissions_, 1, AttributeType::FLOAT, false, sizeof(float), nullptr);
@@ -176,6 +178,7 @@ void Viewport::initVertexBuffers() {
                                       nullptr);
   vao_temp_points_.setVertexAttribute(3, bufTempVisible_, 1, AttributeType::UNSIGNED_INT, false, sizeof(uint32_t),
                                       nullptr);
+  vao_temp_points_.setVertexAttribute(4, bufTempColor_, 3, AttributeType::FLOAT, false, sizeof(glow::vec3), nullptr);
 
   vao_polygon_points_.setVertexAttribute(0, bufPolygonPoints_, 2, AttributeType::FLOAT, false, sizeof(vec2), nullptr);
 
@@ -232,8 +235,8 @@ void convertImg2Bytes(const QImage& img, std::vector<uint8_t>& pixels) {
   }
 }
 
-void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<LabelsPtr>& l, std::vector<std::string>& i,
-                         std::vector<std::string>& labelImages) {
+void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<LabelsPtr>& l, std::vector<ColorsPtr>& colors,
+                         std::vector<LabelsPtr>& imageLabels) {
   std::cout << "Setting points..." << std::flush;
 
   glow::_CheckGlError(__FILE__, __LINE__);
@@ -303,60 +306,26 @@ void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<Labels
       glow::_CheckGlError(__FILE__, __LINE__);
     }
 
-    if (i.size() > 0 || labelImages.size() > 0) {
+    if (colors.size() > 0 || imageLabels.size() > 0) {
       ScopedBinder<GlProgram> programBinder(prgFillTileRGB_);
       ScopedBinder<GlTransformFeedback> feedbackBinder(tfFillRGBValues_);
 
-      GlSampler linear;
-      linear.setMinifyingOperation(TexMinOp::LINEAR);
-      linear.setMagnifyingOperation(TexMagOp::LINEAR);
-      GlSampler nearest;
-      nearest.setMinifyingOperation(TexMinOp::NEAREST);
-      nearest.setMagnifyingOperation(TexMagOp::NEAREST);
-
-      linear.bind(0);
-      nearest.bind(1);
-
-      std::cout << "Reading RGB information..." << std::flush;
       tfFillRGBValues_.begin(TransformFeedbackMode::POINTS);
 
-      prgFillTileRGB_.setUniform(GlUniform<Eigen::Matrix4f>("Tr", calib_["Tr"]));
-      Eigen::Matrix3x4f p2 = calib_["P2"].topLeftCorner(3, 4);
-      prgFillTileRGB_.setUniform(GlUniform<Eigen::Matrix3x4f>("P2", p2));
+      prgFillTileRGB_.setUniform(GlUniform<float>("maxRange", maxRange_));
+      prgFillTileRGB_.setUniform(GlUniform<float>("minRange", minRange_));
+      prgFillTileRGB_.setUniform(GlUniform<vec2>("tilePos", tilePos_));
+      prgFillTileRGB_.setUniform(GlUniform<float>("tileSize", tileSize_));
+      prgFillTileRGB_.setUniform(GlUniform<float>("tileBoundary", tileBoundary_));
 
-      prgFillTileRGB_.setUniform(GlUniform<float>("width", 1241));
-      prgFillTileRGB_.setUniform(GlUniform<float>("height", 376));
-
-      prgFillTileRGB_.setUniform(GlUniform<int32_t>("texImage", 0));
-      prgFillTileRGB_.setUniform(GlUniform<int32_t>("texLabel", 1));
-
-      std::vector<uint8_t> pixels(3 * texImage_.width() * texImage_.height());
       for (uint32_t t = 0; t < points_.size(); ++t) {
-        if (i.size() > t) {
-          QImage img(QString::fromStdString(i[t]));
-
-          convertImg2Bytes(img, pixels);
-          texImage_.assign(PixelFormat::RGB, PixelType::UNSIGNED_BYTE, pixels.data());
-        }
-
-        if (labelImages.size() > 0) {
-          QImage img(QString::fromStdString(labelImages[t]));
-
-          convertImg2Bytes(img, pixels);
-          texLabels_.assign(PixelFormat::RGB, PixelType::UNSIGNED_BYTE, pixels.data());
-        }
-
         prgFillTileRGB_.setUniform(GlUniform<float>("maxRange", maxRange_));
         prgFillTileRGB_.setUniform(GlUniform<Eigen::Matrix4f>("pose", points_[t]->pose));
 
-        glActiveTexture(GL_TEXTURE0);
-        ScopedBinder<GlTexture> bind1(texImage_);
-        glActiveTexture(GL_TEXTURE1);
-        ScopedBinder<GlTexture> bind2(texLabels_);
-        glActiveTexture(GL_TEXTURE0);
-
         // copy data from CPU -> GPU.
         bufTempPoints_.assign(points_[t]->points);
+        bufTempLabels_.assign(*(imageLabels[t]));
+        bufTempColor_.assign(*(colors[t]));
 
         prgFillTileRGB_.setUniform(GlUniform<uint32_t>("scan", t));
 
@@ -368,11 +337,6 @@ void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<Labels
 
       bufColor_.resize(numCopiedPoints);
       bufRGBLabels_.resize(numCopiedPoints);
-
-      std::cout << "finished." << std::endl;
-
-      linear.release(0);
-      nearest.release(0);
 
       glow::_CheckGlError(__FILE__, __LINE__);
     }

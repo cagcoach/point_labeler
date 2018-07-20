@@ -1,5 +1,6 @@
 #include <QtCore/QDir>
 #include <QtGui/QImage>
+#include <QtGui/QPixmap>
 #include <fstream>
 #include <iostream>
 #include "data/kitti_utils.h"
@@ -88,17 +89,25 @@ int32_t main(int32_t argc, char** argv) {
     if (image_dir.exists(img_filename)) {
       // project points and get color from image.
       QImage img(image_dir.filePath(img_filename));
+//      QPixmap pix(img_dir.filePath(img_filename));
+//      QPainter painter(pix);
       for (uint32_t j = 0; j < points.size(); ++j) {
         Eigen::Vector4f pos = Tr * points[j];
         if (pos.z() < 0) continue;
 
         Eigen::Vector3f coords = P2 * pos;
         if (coords.x() < 0 || coords.y() < 0 || coords.x() >= img.width() || coords.y() >= img.height()) continue;
+
         QRgb col = img.pixel(coords.x(), coords.y());
         colors[3 * j] = uint8_t(qRed(col));
         colors[3 * j + 1] = uint8_t(qGreen(col));
         colors[3 * j + 2] = uint8_t(qBlue(col));
+
+//        painter.drawPoint(coords.x(), coords.y());
       }
+
+//      painter.end();
+//      pix.save("projections.png");
     }
 
     QString col_filename = QFileInfo(QString::fromStdString(velodyne_filenames[i])).baseName() + ".rgb";

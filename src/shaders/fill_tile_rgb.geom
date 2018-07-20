@@ -7,7 +7,7 @@ in POINT
 {
   bool valid;
   vec3 color;
-  int label;
+  uint label;
 } gs_in[];
 
 

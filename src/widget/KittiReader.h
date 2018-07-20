@@ -44,12 +44,12 @@ class KittiReader {
   /** \brief get points, labels, and images for given world coordinates. **/
   void retrieve(const Eigen::Vector3f& position, std::vector<uint32_t>& indexes, std::vector<PointcloudPtr>& points,
                 std::vector<LabelsPtr>& labels, std::vector<std::string>& images,
-                std::vector<std::string>& labelImages);
+                std::vector<ColorsPtr>& colors, std::vector<LabelsPtr>& imageLabels);
 
   /** \brief get points, labels, and images for given indexes. **/
   void retrieve(uint32_t i, uint32_t j, std::vector<uint32_t>& indexes, std::vector<PointcloudPtr>& points,
                 std::vector<LabelsPtr>& labels, std::vector<std::string>& images,
-                std::vector<std::string>& labelImages);
+                std::vector<ColorsPtr>& colors, std::vector<LabelsPtr>& imageLabels);
 
   /** \brief update labels for given scan indexes. **/
   void update(const std::vector<uint32_t>& indexes, std::vector<LabelsPtr>& labels);
@@ -69,6 +69,7 @@ class KittiReader {
 
  protected:
   void readPoints(const std::string& filename, Laserscan& scan);
+  void readColors(const std::string& filename, std::vector<glow::vec3>& colors);
   void readLabels(const std::string& filename, std::vector<uint32_t>& labels);
   void readPoses(const std::string& filename, std::vector<Eigen::Matrix4f>& poses);
 
@@ -77,11 +78,14 @@ class KittiReader {
   std::vector<std::string> velodyne_filenames_;
   std::vector<std::string> label_filenames_;
   std::vector<std::string> image_filenames_;
+  std::vector<std::string> color_filenames_;
   std::vector<std::string> imageLabel_filenames_;
 
   // cache reads from before.
   std::map<uint32_t, PointcloudPtr> pointsCache_;
   std::map<uint32_t, LabelsPtr> labelCache_;
+  std::map<uint32_t, ColorsPtr> colorCache_;
+  std::map<uint32_t, LabelsPtr> imageLabelCache_;
 
   float maxDistance_{15.0f};
 
