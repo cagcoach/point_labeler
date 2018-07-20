@@ -79,7 +79,7 @@ void KittiReader::initialize(const QString& directory) {
   QDir imageLabel_dir(base_dir.filePath("image_labels"));
   for (uint32_t i = 0; i < velodyne_filenames_.size(); ++i) {
     QString filename = QFileInfo(QString::fromStdString(velodyne_filenames_[i])).baseName() + ".label";
-    if (!colors_dir.exists(filename))
+    if (!imageLabel_dir.exists(filename))
       imageLabel_filenames_.push_back("missing");
     else {
       imageLabel_filenames_.push_back(imageLabel_dir.filePath(filename).toStdString());
@@ -384,9 +384,15 @@ void KittiReader::readColors(const std::string& filename, std::vector<glow::vec3
   colors.resize(num_points);
   std::vector<uint8_t> data(3 * num_points);
   in.read((char*)&data[0], data.size());
+  uint32_t read_bytes = in.gcount();
+  if (read_bytes != data.size()) {
+    std::cerr << "Warning: Expected to read " << data.size() << " bytes, but read only " << read_bytes << " bytes."
+              << std::endl;
+  }
 
   for (uint32_t i = 0; i < num_points; ++i) {
-    colors[i] = glow::vec3(data[3 * i] / 255.0f, data[3 * i + 1] / 255.0f, data[3 * i + 2] / 255.0f);
+    colors[i] =
+        glow::vec3(float(data[3 * i]) / 255.0f, float(data[3 * i + 1]) / 255.0f, float(data[3 * i + 2]) / 255.0f);
   }
 
   in.close();

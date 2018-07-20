@@ -2,7 +2,7 @@
 
 layout (location = 0) in vec3  in_vertex;
 layout (location = 2) in uint  in_label;
-layout (location = 3) in vec3  in_color;
+layout (location = 4) in vec3  in_color;
 
 uniform uint scan;
 

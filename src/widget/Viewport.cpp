@@ -56,11 +56,13 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
   bufTempRemissions_.reserve(maxPointsPerScan_);
   bufTempLabels_.reserve(maxPointsPerScan_);
   bufTempVisible_.reserve(maxPointsPerScan_);
+  bufTempColor_.reserve(maxPointsPerScan_);
 
   uint32_t tempMem = bufTempPoints_.memorySize();
   tempMem += bufTempRemissions_.memorySize();
   tempMem += bufTempLabels_.memorySize();
   tempMem += bufTempVisible_.memorySize();
+  tempMem += bufTempColor_.memorySize();
 
   std::cout << "temp mem size: " << float(tempMem) / (1000 * 1000) << " MB" << std::endl;
 
@@ -204,36 +206,38 @@ void Viewport::setMaximumScans(uint32_t numScans) {
   memTile += bufVisible_.memorySize();
   memTile += bufLabels_.memorySize();
   memTile += bufScanIndexes_.memorySize();
+  memTile += bufColor_.memorySize();
+  memTile += bufRGBLabels_.memorySize();
 
   std::cout << "mem size: " << float(memTile) / (1000 * 1000) << " MB" << std::endl;
 }
 
-namespace Eigen {
-typedef Matrix<float, 3, 4> Matrix3x4f;
-}
-
-namespace glow {
-template <>
-void GlUniform<Eigen::Matrix3x4f>::bind(GLuint program_id) const {
-  GLint loc = glGetUniformLocation(program_id, name_.c_str());
-  //  assert(loc >= 0 && "Warning: Uniform unknown or unused in program.");
-  glUniformMatrix4x3fv(loc, 1, GL_FALSE, data_.data());
-}
-}
-
-void convertImg2Bytes(const QImage& img, std::vector<uint8_t>& pixels) {
-  int32_t w = img.width();
-  int32_t h = img.height();
-
-  for (int32_t x = 0; x < w; ++x) {
-    for (int32_t y = 0; y < h; ++y) {
-      QRgb pix = img.pixel(x, y);
-      pixels[3 * (x + y * w)] = qRed(pix);
-      pixels[3 * (x + y * w) + 1] = qGreen(pix);
-      pixels[3 * (x + y * w) + 2] = qBlue(pix);
-    }
-  }
-}
+// namespace Eigen {
+// typedef Matrix<float, 3, 4> Matrix3x4f;
+//}
+//
+// namespace glow {
+// template <>
+// void GlUniform<Eigen::Matrix3x4f>::bind(GLuint program_id) const {
+//  GLint loc = glGetUniformLocation(program_id, name_.c_str());
+//  //  assert(loc >= 0 && "Warning: Uniform unknown or unused in program.");
+//  glUniformMatrix4x3fv(loc, 1, GL_FALSE, data_.data());
+//}
+//}
+//
+// void convertImg2Bytes(const QImage& img, std::vector<uint8_t>& pixels) {
+//  int32_t w = img.width();
+//  int32_t h = img.height();
+//
+//  for (int32_t x = 0; x < w; ++x) {
+//    for (int32_t y = 0; y < h; ++y) {
+//      QRgb pix = img.pixel(x, y);
+//      pixels[3 * (x + y * w)] = qRed(pix);
+//      pixels[3 * (x + y * w) + 1] = qGreen(pix);
+//      pixels[3 * (x + y * w) + 2] = qBlue(pix);
+//    }
+//  }
+//}
 
 void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<LabelsPtr>& l, std::vector<ColorsPtr>& colors,
                          std::vector<LabelsPtr>& imageLabels) {
@@ -268,7 +272,7 @@ void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<Labels
       tfFillTilePoints_.begin(TransformFeedbackMode::POINTS);
 
       for (uint32_t t = 0; t < points_.size(); ++t) {
-        prgFillTilePoints_.setUniform(GlUniform<float>("maxRange", maxRange_));
+        prgFillTilePoints_.setUniform(GlUniform<uint32_t>("scan", t));
         prgFillTilePoints_.setUniform(GlUniform<Eigen::Matrix4f>("pose", points_[t]->pose));
 
         uint32_t num_points = points_[t]->size();
@@ -289,8 +293,6 @@ void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<Labels
           bufTempRemissions_.assign(std::vector<float>(points_[t]->size(), 1.0f));
         bufTempLabels_.assign(*(labels_[t]));
         bufTempVisible_.assign(visible);
-
-        prgFillTilePoints_.setUniform(GlUniform<uint32_t>("scan", t));
 
         // extract tile points.
         glDrawArrays(GL_POINTS, 0, points_[t]->size());
@@ -319,15 +321,13 @@ void Viewport::setPoints(const std::vector<PointcloudPtr>& p, std::vector<Labels
       prgFillTileRGB_.setUniform(GlUniform<float>("tileBoundary", tileBoundary_));
 
       for (uint32_t t = 0; t < points_.size(); ++t) {
-        prgFillTileRGB_.setUniform(GlUniform<float>("maxRange", maxRange_));
         prgFillTileRGB_.setUniform(GlUniform<Eigen::Matrix4f>("pose", points_[t]->pose));
+        prgFillTileRGB_.setUniform(GlUniform<uint32_t>("scan", t));
 
         // copy data from CPU -> GPU.
         bufTempPoints_.assign(points_[t]->points);
         bufTempLabels_.assign(*(imageLabels[t]));
         bufTempColor_.assign(*(colors[t]));
-
-        prgFillTileRGB_.setUniform(GlUniform<uint32_t>("scan", t));
 
         // extract tile points.
         glDrawArrays(GL_POINTS, 0, points_[t]->size());
@@ -645,6 +645,7 @@ void Viewport::paintGL() {
     ScopedBinder<GlVertexArray> vao_binder(vao_points_);
 
     prgDrawPoints_.setUniform(GlUniform<bool>("useRemission", drawingOption_["remission"]));
+    prgDrawPoints_.setUniform(GlUniform<bool>("useImageLabels", drawingOption_["image labels"]));
     prgDrawPoints_.setUniform(GlUniform<bool>("useColor", drawingOption_["color"]));
     prgDrawPoints_.setUniform(GlUniform<bool>("removeGround", removeGround_));
     prgDrawPoints_.setUniform(GlUniform<float>("groundThreshold", groundThreshold_));

@@ -66,6 +66,9 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
   connect(ui.chkShowRemission, &QCheckBox::toggled,
           [this](bool value) { ui.mViewportXYZ->setDrawingOption("remission", value); });
 
+  connect(ui.chkImageLabels, &QCheckBox::toggled,
+            [this](bool value) { ui.mViewportXYZ->setDrawingOption("image labels", value); });
+
   connect(ui.chkShowColor, &QCheckBox::toggled,
           [this](bool value) { ui.mViewportXYZ->setDrawingOption("color", value); });
 

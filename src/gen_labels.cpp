@@ -86,6 +86,9 @@ int32_t main(int32_t argc, char** argv) {
         if (pos.z() < 0) continue;
 
         Eigen::Vector3f coords = P2 * pos;
+        coords.x() /= coords.z();
+        coords.y() /= coords.z();
+
         if (coords.x() < 0 || coords.y() < 0 || coords.x() >= img.width() || coords.y() >= img.height()) continue;
         QRgb col = img.pixel(coords.x(), coords.y());
         uint32_t label = uint8_t(qRed(col));

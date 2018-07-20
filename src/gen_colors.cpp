@@ -1,6 +1,8 @@
 #include <QtCore/QDir>
 #include <QtGui/QImage>
+#include <QtGui/QPainter>
 #include <QtGui/QPixmap>
+#include <QtWidgets/QApplication>
 #include <fstream>
 #include <iostream>
 #include "data/kitti_utils.h"
@@ -36,6 +38,8 @@ int32_t main(int32_t argc, char** argv) {
 
     return 1;
   }
+
+  QApplication app(argc, argv);
 
   std::string directory = argv[1];
 
@@ -79,23 +83,26 @@ int32_t main(int32_t argc, char** argv) {
     }
     readPoints(velodyne_filenames[i], points, remissions);
 
-    std::vector<uint8_t> colors(3 * points.size());
+    std::vector<uint8_t> colors(3 * points.size(), 0);
     // default colors are just the remissions as gray value.
-    for (uint32_t j = 0; j < remissions.size(); ++j) {
-      colors[3 * j] = colors[3 * j + 1] = colors[3 * j + 2] = remissions[j] * 255;
-    }
+//    for (uint32_t j = 0; j < remissions.size(); ++j) {
+//      colors[3 * j] = colors[3 * j + 1] = colors[3 * j + 2] = 0;
+//    }
 
     QString img_filename = QFileInfo(QString::fromStdString(velodyne_filenames[i])).baseName() + ".png";
     if (image_dir.exists(img_filename)) {
       // project points and get color from image.
       QImage img(image_dir.filePath(img_filename));
-//      QPixmap pix(img_dir.filePath(img_filename));
-//      QPainter painter(pix);
+      //      QPixmap pix(image_dir.filePath(img_filename));
+      //      QPainter painter(&pix);
+      //      uint32_t count = 0;
       for (uint32_t j = 0; j < points.size(); ++j) {
         Eigen::Vector4f pos = Tr * points[j];
         if (pos.z() < 0) continue;
 
         Eigen::Vector3f coords = P2 * pos;
+        coords.x() /= coords.z();
+        coords.y() /= coords.z();
         if (coords.x() < 0 || coords.y() < 0 || coords.x() >= img.width() || coords.y() >= img.height()) continue;
 
         QRgb col = img.pixel(coords.x(), coords.y());
@@ -103,11 +110,12 @@ int32_t main(int32_t argc, char** argv) {
         colors[3 * j + 1] = uint8_t(qGreen(col));
         colors[3 * j + 2] = uint8_t(qBlue(col));
 
-//        painter.drawPoint(coords.x(), coords.y());
+        //        count++;
+        //        painter.drawPoint(coords.x(), coords.y());
       }
-
-//      painter.end();
-//      pix.save("projections.png");
+      //      std::cout << count << " Points projected inside the image." << std::endl;
+      //      painter.end();
+      //      pix.save("projections.png");
     }
 
     QString col_filename = QFileInfo(QString::fromStdString(velodyne_filenames[i])).baseName() + ".rgb";

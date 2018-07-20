@@ -122,7 +122,7 @@
      <x>0</x>
      <y>0</y>
      <width>1048</width>
-     <height>27</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_File">
@@ -282,15 +282,15 @@
      <item>
       <widget class="QToolBox" name="toolBox">
        <property name="currentIndex">
-        <number>0</number>
+        <number>1</number>
        </property>
        <widget class="QWidget" name="page">
         <property name="geometry">
          <rect>
           <x>0</x>
-          <y>0</y>
+          <y>-258</y>
           <width>219</width>
-          <height>494</height>
+          <height>486</height>
          </rect>
         </property>
         <attribute name="label">
@@ -774,7 +774,7 @@
           <x>0</x>
           <y>0</y>
           <width>232</width>
-          <height>223</height>
+          <height>228</height>
          </rect>
         </property>
         <attribute name="label">
@@ -799,6 +799,16 @@
           <widget class="QCheckBox" name="chkShowRemission">
            <property name="text">
             <string>remission</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="chkImageLabels">
+           <property name="text">
+            <string>image labels</string>
            </property>
           </widget>
          </item>
