@@ -304,9 +304,9 @@
         <property name="geometry">
          <rect>
           <x>0</x>
-          <y>-560</y>
-          <width>219</width>
-          <height>950</height>
+          <y>-604</y>
+          <width>293</width>
+          <height>994</height>
          </rect>
         </property>
         <attribute name="label">
@@ -772,14 +772,7 @@
            <property name="bottomMargin">
             <number>5</number>
            </property>
-           <item row="0" column="0" colspan="2">
-            <widget class="QCheckBox" name="chkPlaneRemovalNormal">
-             <property name="text">
-              <string>remove with plane</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0" colspan="2">
+           <item row="2" column="0" colspan="2">
             <widget class="QCheckBox" name="chkShowPlane">
              <property name="text">
               <string>show plane</string>
@@ -789,7 +782,7 @@
              </property>
             </widget>
            </item>
-           <item row="3" column="0" colspan="2">
+           <item row="5" column="0" colspan="2">
             <layout class="QHBoxLayout" name="horizontalLayout_10">
              <property name="leftMargin">
               <number>5</number>
@@ -840,7 +833,7 @@
              </item>
             </layout>
            </item>
-           <item row="4" column="0" colspan="2">
+           <item row="6" column="0" colspan="2">
             <layout class="QHBoxLayout" name="horizontalLayout_12">
              <property name="leftMargin">
               <number>5</number>
@@ -891,14 +884,7 @@
              </item>
             </layout>
            </item>
-           <item row="5" column="0" colspan="2">
-            <widget class="QCheckBox" name="chkCarPoseAsBase">
-             <property name="text">
-              <string>car pose as base</string>
-             </property>
-            </widget>
-           </item>
-           <item row="6" column="0" colspan="2">
+           <item row="8" column="0" colspan="2">
             <layout class="QHBoxLayout" name="horizontalLayout_11">
              <property name="leftMargin">
               <number>5</number>
@@ -940,40 +926,82 @@
              </item>
             </layout>
            </item>
-           <item row="2" column="1">
-            <widget class="QSlider" name="sldPlaneThresholdNormal">
-             <property name="focusPolicy">
-              <enum>Qt::WheelFocus</enum>
-             </property>
-             <property name="minimum">
-              <number>-10000</number>
-             </property>
-             <property name="maximum">
-              <number>10000</number>
-             </property>
-             <property name="singleStep">
-              <number>1</number>
-             </property>
-             <property name="pageStep">
-              <number>50</number>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="tickPosition">
-              <enum>QSlider::TicksBelow</enum>
-             </property>
-             <property name="tickInterval">
-              <number>2000</number>
+           <item row="1" column="0" colspan="2">
+            <layout class="QHBoxLayout" name="horizontalLayout_21">
+             <item>
+              <widget class="QCheckBox" name="chkPlaneRemovalNormal">
+               <property name="text">
+                <string>remove with plane</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_4">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnReset">
+               <property name="text">
+                <string>Reset</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="0" column="0">
+            <widget class="QCheckBox" name="chkCarPoseAsBase">
+             <property name="text">
+              <string>car pose as base</string>
              </property>
             </widget>
            </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="label_5">
-             <property name="text">
-              <string>Threshold</string>
-             </property>
-            </widget>
+           <item row="4" column="0" colspan="2">
+            <layout class="QHBoxLayout" name="horizontalLayout_22">
+             <item>
+              <widget class="QLabel" name="label_5">
+               <property name="text">
+                <string>Threshold</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSlider" name="sldPlaneThresholdNormal">
+               <property name="focusPolicy">
+                <enum>Qt::WheelFocus</enum>
+               </property>
+               <property name="minimum">
+                <number>-10000</number>
+               </property>
+               <property name="maximum">
+                <number>10000</number>
+               </property>
+               <property name="singleStep">
+                <number>1</number>
+               </property>
+               <property name="pageStep">
+                <number>50</number>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="tickPosition">
+                <enum>QSlider::TicksBelow</enum>
+               </property>
+               <property name="tickInterval">
+                <number>2000</number>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
           </layout>
          </item>
@@ -991,59 +1019,17 @@
            <property name="bottomMargin">
             <number>5</number>
            </property>
-           <item row="0" column="0" colspan="2">
-            <widget class="QCheckBox" name="chkPlaneRemovalNormal_extra">
-             <property name="text">
-              <string>extra plane</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0" colspan="2">
+           <item row="2" column="0" colspan="2">
             <widget class="QCheckBox" name="chkShowPlane_extra">
              <property name="text">
-              <string>show plane</string>
+              <string>show extra plane</string>
              </property>
              <property name="checked">
               <bool>true</bool>
              </property>
             </widget>
            </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="label_11">
-             <property name="text">
-              <string>Threshold</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QSlider" name="sldPlaneThresholdNormal_extra">
-             <property name="focusPolicy">
-              <enum>Qt::WheelFocus</enum>
-             </property>
-             <property name="minimum">
-              <number>-10000</number>
-             </property>
-             <property name="maximum">
-              <number>10000</number>
-             </property>
-             <property name="singleStep">
-              <number>1</number>
-             </property>
-             <property name="pageStep">
-              <number>50</number>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="tickPosition">
-              <enum>QSlider::TicksBelow</enum>
-             </property>
-             <property name="tickInterval">
-              <number>2000</number>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0" colspan="2">
+           <item row="4" column="0" colspan="2">
             <layout class="QHBoxLayout" name="horizontalLayout_15">
              <property name="leftMargin">
               <number>5</number>
@@ -1094,7 +1080,7 @@
              </item>
             </layout>
            </item>
-           <item row="4" column="0" colspan="2">
+           <item row="5" column="0" colspan="2">
             <layout class="QHBoxLayout" name="horizontalLayout_16">
              <property name="leftMargin">
               <number>5</number>
@@ -1145,7 +1131,7 @@
              </item>
             </layout>
            </item>
-           <item row="5" column="0" colspan="2">
+           <item row="6" column="0" colspan="2">
             <layout class="QHBoxLayout" name="horizontalLayout_17">
              <property name="leftMargin">
               <number>5</number>
@@ -1187,6 +1173,88 @@
              </item>
             </layout>
            </item>
+           <item row="3" column="0" colspan="2">
+            <layout class="QHBoxLayout" name="horizontalLayout_19">
+             <property name="leftMargin">
+              <number>5</number>
+             </property>
+             <property name="topMargin">
+              <number>5</number>
+             </property>
+             <property name="rightMargin">
+              <number>3</number>
+             </property>
+             <property name="bottomMargin">
+              <number>5</number>
+             </property>
+             <item>
+              <widget class="QLabel" name="label_11">
+               <property name="text">
+                <string>Threshold</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSlider" name="sldPlaneThresholdNormal_extra">
+               <property name="focusPolicy">
+                <enum>Qt::WheelFocus</enum>
+               </property>
+               <property name="minimum">
+                <number>-10000</number>
+               </property>
+               <property name="maximum">
+                <number>10000</number>
+               </property>
+               <property name="singleStep">
+                <number>1</number>
+               </property>
+               <property name="pageStep">
+                <number>50</number>
+               </property>
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="tickPosition">
+                <enum>QSlider::TicksBelow</enum>
+               </property>
+               <property name="tickInterval">
+                <number>2000</number>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="1" column="0" colspan="2">
+            <layout class="QHBoxLayout" name="horizontalLayout_20">
+             <item>
+              <widget class="QCheckBox" name="chkPlaneRemovalNormal_extra">
+               <property name="text">
+                <string>extra plane</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_3">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnReset_extra">
+               <property name="text">
+                <string>Reset</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
           </layout>
          </item>
         </layout>
@@ -1196,7 +1264,7 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>232</width>
+          <width>306</width>
           <height>390</height>
          </rect>
         </property>

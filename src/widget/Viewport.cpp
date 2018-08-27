@@ -720,8 +720,11 @@ void Viewport::paintGL() {
     prgDrawPlane_.setUniform(GlUniform<float>("planeThresholdNormal", planeThresholdNormal_));
     prgDrawPlane_.setUniform(GlUniform<float>("planeDirectionNormal", planeDirectionNormal_));
     prgDrawPlane_.setUniform(GlUniform<Eigen::Vector3f>("planeNormal", planeNormal_));
-    //    prgDrawPoints_.setUniform(GlUniform<bool>("carAsBase", drawingOption_["carAsBase"]));
     Eigen::Matrix4f plane_pose = Eigen::Matrix4f::Identity();
+
+    // First plane in blue
+    Eigen::Vector4f plane_color(0, 0, 1, 0.25);
+    prgDrawPlane_.setUniform(GlUniform<Eigen::Vector4f>("plane_color", plane_color));
 
     plane_pose(0, 3) = tilePos_.x;
     plane_pose(1, 3) = tilePos_.y;
@@ -737,7 +740,7 @@ void Viewport::paintGL() {
     glDisable(GL_BLEND);
   }
 
-  if (planeRemovalNormal_ && drawingOption_["show plane extra"]) {
+  if (planeRemovalNormal_extra_ && drawingOption_["show plane extra"]) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  // FIXME: state changed.
 
@@ -746,11 +749,15 @@ void Viewport::paintGL() {
 
     prgDrawPlane_.setUniform(mvp_);
 
-    prgDrawPlane_.setUniform(GlUniform<bool>("planeRemovalNormal_extra", planeRemovalNormal_extra_));
-    prgDrawPlane_.setUniform(GlUniform<float>("planeThresholdNormal_extra", planeThresholdNormal_extra_));
-    prgDrawPlane_.setUniform(GlUniform<float>("planeDirectionNormal_extra", planeDirectionNormal_extra_));
-    prgDrawPlane_.setUniform(GlUniform<Eigen::Vector3f>("planeNormal_extra", planeNormal_extra_));
+    prgDrawPlane_.setUniform(GlUniform<bool>("planeRemovalNormal", planeRemovalNormal_extra_));
+    prgDrawPlane_.setUniform(GlUniform<float>("planeThresholdNormal", planeThresholdNormal_extra_));
+    prgDrawPlane_.setUniform(GlUniform<float>("planeDirectionNormal", planeDirectionNormal_extra_));
+    prgDrawPlane_.setUniform(GlUniform<Eigen::Vector3f>("planeNormal", planeNormal_extra_));
     Eigen::Matrix4f plane_pose = Eigen::Matrix4f::Identity();
+
+    // Extra plane in green
+    Eigen::Vector4f plane_color(0, 1, 0, 0.25);
+    prgDrawPlane_.setUniform(GlUniform<Eigen::Vector4f>("plane_color", plane_color));
 
     plane_pose(0, 3) = tilePos_.x;
     plane_pose(1, 3) = tilePos_.y;
@@ -1506,11 +1513,11 @@ void Viewport::setPlaneRemovalNormalParams(float threshold, float A1, float A2, 
   updateGL();
 }
 
-void Viewport::setPlaneRemovalNormalParams(float threshold, float A1, float A2, float A3, float direction) {
+void Viewport::setPlaneRemovalNormalParams_extra(float threshold, float A1, float A2, float A3, float direction) {
   planeThresholdNormal_extra_ = threshold;
 
   float theta = A1 * PI / 180;
-  float phi = A2 * PI / 180;
+  float phi = (A2 + 90) * PI / 180; // increase phi by 90° to have the second plane orthogonal to the first
 
   float a = std::tan(theta);
   float b = std::tan(phi);

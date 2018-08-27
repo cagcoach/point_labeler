@@ -91,6 +91,9 @@ class Viewport : public QGLWidget {
   void setPlaneRemovalNormal(bool value);
   void setPlaneRemovalNormalParams(float threshold, float A1, float A2, float A3, float direction);
 
+  void setPlaneRemovalNormal_extra(bool value);
+  void setPlaneRemovalNormalParams_extra(float threshold, float A1, float A2, float A3, float direction);
+
   uint32_t loadedPointCount() const { return bufPoints_.size(); }
   uint32_t labeledPointCount() const { return labeledCount_; }
 
@@ -295,7 +298,8 @@ class Viewport : public QGLWidget {
 
   bool planeRemovalNormal_extra_{false};
   float planeThresholdNormal_extra_{0.0f};
-  Eigen::Vector3f planeNormal_extra_{0.0, 0.0, 1.0};
+  const double PI = std::acos(-1);
+  Eigen::Vector3f planeNormal_extra_{0.0, (float)std::tan(PI/2), 1.0};
   float planeDirectionNormal_extra_{1.0f};
 
   uint32_t labeledCount_{0};

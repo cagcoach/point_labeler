@@ -37,6 +37,11 @@ uniform float planeThresholdNormal;
 uniform float planeDirectionNormal;
 uniform mat4 plane_pose;
 
+uniform bool planeRemovalNormal_extra;
+uniform vec3 planeNormal_extra;
+uniform float planeThresholdNormal_extra;
+uniform float planeDirectionNormal_extra;
+
 uniform bool removeLabel;
 
 
@@ -90,6 +95,14 @@ void main()
     visible = visible && (planeDirectionNormal * (scalar_product - planeThresholdNormal) < 0);
   }
 
+  if(planeRemovalNormal_extra){
+    vec3 pn = (plane_pose * vec4(planeNormal_extra, 0.0)).xyz;
+    vec3 po = (plane_pose * vec4(0,0,0,1)).xyz;
+    
+    float scalar_product = dot(in_vertex.xyz - po.xyz, pn);
+    
+    visible = visible && (planeDirectionNormal_extra * (scalar_product - planeThresholdNormal_extra) < 0);
+  }
 
   if(visible)
   {

@@ -171,6 +171,13 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
   // Removal with plane in arbitrary normal direction
   // ------------------------------------------
 
+  // Button to reset parameters
+  connect(ui.btnReset, &QPushButton::released, [this](){
+    ui.sldPlaneThresholdNormal->setValue(0);
+    ui.sldPlaneNormalA1->setValue(0);
+    ui.sldPlaneNormalA2->setValue(0);
+  });
+
   // Checkbox for removal in arbitrary normal direction
   connect(ui.chkPlaneRemovalNormal, &QCheckBox::toggled,
           [this](bool value) { ui.mViewportXYZ->setPlaneRemovalNormal(value); });
@@ -215,7 +222,16 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
   connect(ui.chkShowPlane, &QCheckBox::toggled,
           [this](bool value) { ui.mViewportXYZ->setDrawingOption("show plane", value); });
 
+  // ------------------------------------------
   // Extra plane
+  // ------------------------------------------
+
+  // Button to reset parameters
+  connect(ui.btnReset_extra, &QPushButton::released, [this](){
+    ui.sldPlaneThresholdNormal_extra->setValue(0);
+    ui.sldPlaneNormalA1_extra->setValue(0);
+    ui.sldPlaneNormalA2_extra->setValue(0);
+  });
 
   // Checkbox for removal in arbitrary normal direction
   connect(ui.chkPlaneRemovalNormal_extra, &QCheckBox::toggled,
