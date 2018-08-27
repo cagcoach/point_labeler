@@ -1525,12 +1525,13 @@ void Viewport::setPlaneRemovalNormalParams_extra(float threshold, float A1, floa
   planeThresholdNormal_extra_ = threshold;
 
   float theta = A1 * PI / 180;
-  float phi = (A2 + 90) * PI / 180; // increase phi by 90° to have the second plane orthogonal to the first
+  float phi = A2 * PI / 180; // increase phi by 90° to have the second plane orthogonal to the first
 
   float a = std::tan(theta);
   float b = std::tan(phi);
   
-  Eigen::Vector3f n(a, b, 1);
+  // Extra plane should be turned in different directions with the parameters
+  Eigen::Vector3f n(a, 1, b);
   n.normalize();
 
   //  std::cout << "rotation matrix: " << std::endl << rotX * rotY * rotZ << std::endl;

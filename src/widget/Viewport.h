@@ -302,7 +302,7 @@ class Viewport : public QGLWidget {
   bool planeRemovalNormal_extra_{false};
   float planeThresholdNormal_extra_{0.0f};
   const double PI = std::acos(-1);
-  Eigen::Vector3f planeNormal_extra_{0.0, (float)std::tan(PI/2), 1.0};
+  Eigen::Vector3f planeNormal_extra_{0.0, 1.0, 0.0};
   float planeDirectionNormal_extra_{1.0f};
 
   bool remissionRemoval_{false};
