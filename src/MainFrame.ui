@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1048</width>
+    <width>1393</width>
     <height>822</height>
    </rect>
   </property>
@@ -121,7 +121,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1048</width>
+     <width>1393</width>
      <height>25</height>
     </rect>
    </property>
@@ -206,7 +206,7 @@
   <widget class="QDockWidget" name="dockWidget">
    <property name="minimumSize">
     <size>
-     <width>250</width>
+     <width>300</width>
      <height>250</height>
     </size>
    </property>
@@ -274,7 +274,7 @@
   <widget class="QDockWidget" name="dockWidget_2">
    <property name="minimumSize">
     <size>
-     <width>250</width>
+     <width>300</width>
      <height>221</height>
     </size>
    </property>
@@ -297,6 +297,12 @@
     <layout class="QVBoxLayout" name="verticalLayout_6">
      <item>
       <widget class="QToolBox" name="toolBox">
+       <property name="minimumSize">
+        <size>
+         <width>200</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="currentIndex">
         <number>0</number>
        </property>
@@ -304,8 +310,8 @@
         <property name="geometry">
          <rect>
           <x>0</x>
-          <y>-604</y>
-          <width>293</width>
+          <y>-212</y>
+          <width>284</width>
           <height>994</height>
          </rect>
         </property>
@@ -1264,7 +1270,7 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>306</width>
+          <width>289</width>
           <height>390</height>
          </rect>
         </property>
@@ -1288,6 +1294,72 @@
             <bool>true</bool>
            </property>
           </widget>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_9">
+           <item>
+            <widget class="QCheckBox" name="chkRemissionThreshold">
+             <property name="text">
+              <string>remission threshold</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_24">
+             <item>
+              <widget class="QLabel" name="label_4">
+               <property name="text">
+                <string>Upper</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QDoubleSpinBox" name="spinRemissionUpper">
+               <property name="decimals">
+                <number>1</number>
+               </property>
+               <property name="maximum">
+                <double>100.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>1.000000000000000</double>
+               </property>
+               <property name="value">
+                <double>100.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_23">
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_25">
+               <item>
+                <widget class="QLabel" name="label_12">
+                 <property name="text">
+                  <string>Lower</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QDoubleSpinBox" name="spinRemissionLower">
+                 <property name="decimals">
+                  <number>1</number>
+                 </property>
+                 <property name="maximum">
+                  <double>100.000000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>0.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </item>
+          </layout>
          </item>
          <item>
           <spacer name="verticalSpacer">

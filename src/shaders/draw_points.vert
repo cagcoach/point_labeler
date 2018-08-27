@@ -19,11 +19,6 @@ uniform bool useColor;
 uniform bool removeGround;
 uniform float groundThreshold;
 
-//uniform bool planeRemoval;
-//uniform int planeDimension;
-//uniform float planeThreshold;
-//suniform float planeDirection;
-
 uniform bool planeRemovalNormal;
 uniform vec3 planeNormal;
 uniform float planeThresholdNormal;
@@ -34,6 +29,10 @@ uniform bool planeRemovalNormal_extra;
 uniform vec3 planeNormal_extra;
 uniform float planeThresholdNormal_extra;
 uniform float planeDirectionNormal_extra;
+
+uniform bool remissionRemoval;
+uniform float remissionUpper;
+uniform float remissionLower;
 
 uniform vec2 tilePos;
 uniform float tileSize;
@@ -75,13 +74,16 @@ void main()
     visible = visible && (planeDirectionNormal_extra * (scalar_product - planeThresholdNormal_extra) < 0);
   }
 
+  if(remissionRemoval){
+    in_remission = clamp(in_remission, 0.0, 1.0);
+    visible = visible && (in_remission <= remissionUpper) && (in_remission >= remissionLower);
+  }
   
   // if(!visible || range < minRange || range > maxRange) gl_Position = vec4(-10, -10, -10, 1);
   if(!visible) gl_Position = vec4(-10, -10, -10, 1);
   
   
-  if(useRemission)
-  { 
+  if(useRemission){ 
     in_remission = clamp(in_remission, 0.0, 1.0);
     float r = in_remission * 0.25 + 0.75; // ensure r in [0.75, 1.0]
     if(in_label == uint(0)) r = in_remission * 0.7 + 0.3; // r in [0.3, 1.0]
@@ -90,8 +92,7 @@ void main()
     
     color = vec4(hsv2rgb(vec3(1, 1, r) * hsv), 1.0);
   }
-  else 
-  {
+  else{
     color = vec4(in_color.rgb, 1.0);
   }
 }

@@ -42,6 +42,10 @@ uniform vec3 planeNormal_extra;
 uniform float planeThresholdNormal_extra;
 uniform float planeDirectionNormal_extra;
 
+uniform bool remissionRemoval;
+uniform float remissionUpper;
+uniform float remissionLower;
+
 uniform bool removeLabel;
 
 
@@ -102,6 +106,11 @@ void main()
     float scalar_product = dot(in_vertex.xyz - po.xyz, pn);
     
     visible = visible && (planeDirectionNormal_extra * (scalar_product - planeThresholdNormal_extra) < 0);
+  }
+
+  if(remissionRemoval){
+    in_remission = clamp(in_remission, 0.0, 1.0);
+    visible = visible && (in_remission <= remissionUpper) && (in_remission >= remissionLower);
   }
 
   if(visible)

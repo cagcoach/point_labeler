@@ -659,6 +659,10 @@ void Viewport::paintGL() {
     prgDrawPoints_.setUniform(GlUniform<Eigen::Vector3f>("planeNormal_extra", planeNormal_extra_));
     prgDrawPoints_.setUniform(GlUniform<float>("planeThresholdNormal_extra", planeThresholdNormal_extra_));
     prgDrawPoints_.setUniform(GlUniform<float>("planeDirectionNormal_extra", planeDirectionNormal_extra_));
+
+    prgDrawPoints_.setUniform(GlUniform<bool>("remissionRemoval", remissionRemoval_));
+    prgDrawPoints_.setUniform(GlUniform<float>("remissionUpper", remissionUpper_));
+    prgDrawPoints_.setUniform(GlUniform<float>("remissionLower", remissionLower_));
      
     Eigen::Matrix4f plane_pose = Eigen::Matrix4f::Identity();
     plane_pose(0, 3) = tilePos_.x;
@@ -1206,6 +1210,10 @@ void Viewport::labelPoints(int32_t x, int32_t y, float radius, uint32_t new_labe
   prgUpdateLabels_.setUniform(GlUniform<float>("planeThresholdNormal_extra", planeThresholdNormal_extra_));
   prgUpdateLabels_.setUniform(GlUniform<float>("planeDirectionNormal_extra", planeDirectionNormal_extra_));
 
+  prgUpdateLabels_.setUniform(GlUniform<bool>("remissionRemoval", remissionRemoval_));
+  prgUpdateLabels_.setUniform(GlUniform<float>("remissionUpper", remissionUpper_));
+  prgUpdateLabels_.setUniform(GlUniform<float>("remissionLower", remissionLower_));
+
   Eigen::Matrix4f plane_pose = Eigen::Matrix4f::Identity();
   plane_pose(0, 3) = tilePos_.x;
   plane_pose(1, 3) = tilePos_.y;
@@ -1534,6 +1542,21 @@ void Viewport::setPlaneRemovalNormalParams_extra(float threshold, float A1, floa
 
   planeNormal_extra_ = n;  // normal_vect.head(3);
   planeDirectionNormal_extra_ = direction;
+  updateGL();
+}
+
+// ------------------------------------------
+// Remission
+// ------------------------------------------
+
+void Viewport::setRemissionRemoval(bool value) {
+  remissionRemoval_ = value;
+  updateGL();
+}
+
+void Viewport::setRemissionParams(float upper, float lower) {
+  remissionUpper_ = upper;
+  remissionLower_ = lower;
   updateGL();
 }
 
