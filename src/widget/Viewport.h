@@ -293,6 +293,11 @@ class Viewport : public QGLWidget {
   Eigen::Vector3f planeNormal_{0.0, 0.0, 1.0};
   float planeDirectionNormal_{1.0f};
 
+  bool planeRemovalNormal_extra_{false};
+  float planeThresholdNormal_extra_{0.0f};
+  Eigen::Vector3f planeNormal_extra_{0.0, 0.0, 1.0};
+  float planeDirectionNormal_extra_{1.0f};
+
   uint32_t labeledCount_{0};
   bool flipMouseButtons{false};
 

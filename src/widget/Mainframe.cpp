@@ -215,6 +215,49 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
   connect(ui.chkShowPlane, &QCheckBox::toggled,
           [this](bool value) { ui.mViewportXYZ->setDrawingOption("show plane", value); });
 
+  // Extra plane
+
+  // Checkbox for removal in arbitrary normal direction
+  connect(ui.chkPlaneRemovalNormal_extra, &QCheckBox::toggled,
+          [this](bool value) { ui.mViewportXYZ->setPlaneRemovalNormal_extra(value); });
+
+  connect(ui.sldPlaneThresholdNormal_extra, &QSlider::valueChanged, [this]() {
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(
+        ui.sldPlaneThresholdNormal_extra->value() / 100.0f, ui.sldPlaneNormalA1_extra->value() / 8.0f,
+        ui.sldPlaneNormalA2_extra->value() / 4.0f, 0, ui.rdoPlaneBelowNormal_extra->isChecked() ? -1.0f : 1.0f);
+  });
+
+  // Sliders to select normal parameters
+  connect(ui.sldPlaneNormalA1_extra, &QSlider::valueChanged, [this]() {
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(
+        ui.sldPlaneThresholdNormal_extra->value() / 100.0f, ui.sldPlaneNormalA1_extra->value() / 8.0f,
+        ui.sldPlaneNormalA2_extra->value() / 4.0f, 0, ui.rdoPlaneBelowNormal_extra->isChecked() ? -1.0f : 1.0f);
+  });
+
+  connect(ui.sldPlaneNormalA2_extra, &QSlider::valueChanged, [this]() {
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(
+        ui.sldPlaneThresholdNormal_extra->value() / 100.0f, ui.sldPlaneNormalA1_extra->value() / 8.0f,
+        ui.sldPlaneNormalA2_extra->value() / 4.0f, 0, ui.rdoPlaneBelowNormal_extra->isChecked() ? -1.0f : 1.0f);
+  });
+
+  // Radio buttons to select orientation
+  connect(ui.rdoPlaneAboveNormal_extra, &QRadioButton::released, [this]() {
+    ui.rdoPlaneBelowNormal_extra->setChecked(false);
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(ui.sldPlaneThresholdNormal_extra->value() / 100.0f,
+                                                       ui.sldPlaneNormalA1_extra->value() / 8.0f,
+                                                       ui.sldPlaneNormalA2_extra->value() / 8.0f, 0, 1.0f);
+  });
+
+  connect(ui.rdoPlaneBelowNormal_extra, &QRadioButton::released, [this]() {
+    ui.rdoPlaneAboveNormal_extra->setChecked(false);
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(ui.sldPlaneThresholdNormal_extra->value() / 100.0f,
+                                                       ui.sldPlaneNormalA1_extra->value() / 8.0f,
+                                                       ui.sldPlaneNormalA2_extra->value() / 8.0f, 0, -1.0f);
+  });
+
+  connect(ui.chkShowPlane_extra, &QCheckBox::toggled,
+          [this](bool value) { ui.mViewportXYZ->setDrawingOption("show plane extra", value); });
+
   // ------------------------------------------
   // Camera Projection
   // ------------------------------------------
