@@ -750,15 +750,23 @@ void Mainframe::readConfig() {
     if (tokens[0] == "camera") {
       std::string value = trim(tokens[1]);
       auto cameras = ui.mViewportXYZ->getCameraNames();
+
       bool found = false;
       for (auto name : cameras) {
-        if (name == value) ui.mViewportXYZ->setCameraByName(name);
+        if (name == value){
+            ui.mViewportXYZ->setCameraByName(name);
+            found = true;
+        }
       }
       if (found) {
         std::cout << "-- Setting 'camera' to " << value << std::endl;
       } else {
         std::cout << "-- [ERROR] Could not set 'camera' to " << value << ". Undefined camera. Using default."
                   << std::endl;
+        std::cout << "The following cameras are available:" << std::endl;    
+        for(size_t i = 0; i < cameras.size(); i++){
+          std::cout << cameras[i] << std::endl;
+        }
       }
     }
   }
