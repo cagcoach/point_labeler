@@ -147,6 +147,7 @@
     </property>
     <addaction name="actionPaintMode"/>
     <addaction name="actionPolygonMode"/>
+    <addaction name="actionAutoAutoMode"/>
     <addaction name="separator"/>
     <addaction name="actionOverwrite"/>
     <addaction name="actionFilter"/>
@@ -195,6 +196,7 @@
    <addaction name="separator"/>
    <addaction name="actionPaintMode"/>
    <addaction name="actionPolygonMode"/>
+   <addaction name="actionAutoAutoMode"/>
    <addaction name="separator"/>
    <addaction name="actionOverwrite"/>
    <addaction name="actionFilter"/>
@@ -540,6 +542,16 @@
             <widget class="QToolButton" name="btnPolygonMode">
              <property name="text">
               <string>p</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QToolButton" name="btnAutoAutoMode">
+             <property name="text">
+              <string>a</string>
              </property>
              <property name="checkable">
               <bool>true</bool>
@@ -982,6 +994,14 @@
    </property>
    <property name="text">
     <string>Polygon</string>
+   </property>
+  </action>
+  <action name="actionAutoAutoMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>AutoAuto</string>
    </property>
   </action>
   <action name="actionSave">

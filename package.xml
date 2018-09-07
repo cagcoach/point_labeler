@@ -13,7 +13,12 @@
   
   <run_depend>glow</run_depend>
   
+  <build_depend>voro</build_depend>
+  
+  <run_depend>voro</run_depend>
+  
   <export>
     <git_url target="glow" url="https://github.com/jbehley/glow.git"/>
+    <git_url target="voro" url="https://github.com/cagcoach/voro.git"/>
   </export>
 </package>

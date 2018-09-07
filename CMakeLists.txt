@@ -12,14 +12,13 @@ find_package(Qt5OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem system)
 
-find_package(catkin COMPONENTS 
-     glow)
+find_package(catkin REQUIRED COMPONENTS glow voro)
 
 if(catkin_FOUND)
   message("Found catkin")
   catkin_package(
     CATKIN_DEPENDS
-      glow
+      glow voro
     DEPENDS
       Boost
   )
@@ -63,6 +62,7 @@ COMPILE_SHADERS(${VIZ_SHADER_SRC}
   src/shaders/fill_tile_points.geom
   src/shaders/fill_tile_points.vert
   src/shaders/draw_points.vert
+  src/shaders/draw_car_points.vert
   src/shaders/draw_polygon.vert
   src/shaders/update_visibility.vert
   src/shaders/update_labels.vert
@@ -71,6 +71,7 @@ COMPILE_SHADERS(${VIZ_SHADER_SRC}
   src/shaders/draw_frustum.geom
   src/shaders/draw_heightmap.geom
   src/shaders/draw_heightmap.vert
+  src/shaders/select_poly.vert
   src/shaders/average_heightmap.frag
 )
 
@@ -97,6 +98,16 @@ add_executable(labeler
   src/widget/TileSelectorWidget.cpp
   src/widget/waitingspinnerwidget.cpp
   src/widget/ImageViewer.cpp
+  src/libicp/icp.cpp
+  src/libicp/icp.h
+#  src/libicp/icpPointToPlane.cpp
+#  src/libicp/icpPointToPlane.h
+  src/libicp/icpPointToPoint.cpp
+  src/libicp/icpPointToPoint.h
+  src/libicp/kdtree.cpp
+  src/libicp/kdtree.h
+  src/libicp/matrix.cpp
+  src/libicp/matrix.h
 )
 
 if(NOT GTEST_FOUND)

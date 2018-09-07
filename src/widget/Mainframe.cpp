@@ -30,10 +30,15 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
           [this]() { changeMode(Viewport::PAINT, ui.btnBrushMode->isChecked()); });
   connect(ui.btnPolygonMode, &QToolButton::released,
           [this]() { changeMode(Viewport::POLYGON, ui.btnPolygonMode->isChecked()); });
+  connect(ui.btnAutoAutoMode, &QToolButton::released,
+          [this]() { changeMode(Viewport::AUTOAUTO, ui.btnAutoAutoMode->isChecked()); });
+
   connect(ui.actionPaintMode, &QAction::triggered,
           [this]() { changeMode(Viewport::PAINT, ui.actionPaintMode->isChecked()); });
   connect(ui.actionPolygonMode, &QAction::triggered,
           [this]() { changeMode(Viewport::POLYGON, ui.actionPolygonMode->isChecked()); });
+  connect(ui.actionAutoAutoMode, &QAction::triggered,
+          [this]() { changeMode(Viewport::AUTOAUTO, ui.actionAutoAutoMode->isChecked()); });
 
   ui.btnOverwrite->setDefaultAction(ui.actionOverwrite);
   ui.btnFilter->setDefaultAction(ui.actionFilter);
@@ -371,6 +376,11 @@ void Mainframe::changeMode(int mode, bool checked) {
       ui.btnPolygonMode->setChecked(false);
       ui.actionPolygonMode->setChecked(false);
     }
+
+    if (mode == Viewport::AUTOAUTO) {
+      ui.btnAutoAutoMode->setChecked(false);
+      ui.actionAutoAutoMode->setChecked(false);
+    }
   }
 
   if (checked) {
@@ -380,6 +390,9 @@ void Mainframe::changeMode(int mode, bool checked) {
 
       ui.btnPolygonMode->setChecked(false);
       ui.actionPolygonMode->setChecked(false);
+
+      ui.btnAutoAutoMode->setChecked(false);
+      ui.actionAutoAutoMode->setChecked(false);
 
       ui.btnBrushMode->setChecked(true);
       ui.actionPaintMode->setChecked(true);
@@ -394,8 +407,27 @@ void Mainframe::changeMode(int mode, bool checked) {
       ui.btnBrushMode->setChecked(false);
       ui.actionPaintMode->setChecked(false);
 
+      ui.btnAutoAutoMode->setChecked(false);
+      ui.actionAutoAutoMode->setChecked(false);
+
       ui.btnPolygonMode->setChecked(true);
       ui.actionPolygonMode->setChecked(true);
+
+      //    ui.mTools->setCurrentIndex(1);
+    }
+
+    if (mode == Viewport::AUTOAUTO) {
+      //      std::cout << "triggered AutoAuto mode." << std::endl;
+      ui.mViewportXYZ->setMode(Viewport::AUTOAUTO);
+
+      ui.btnBrushMode->setChecked(false);
+      ui.actionPaintMode->setChecked(false);
+
+      ui.btnAutoAutoMode->setChecked(true);
+      ui.actionAutoAutoMode->setChecked(true);
+
+      ui.btnPolygonMode->setChecked(false);
+      ui.actionPolygonMode->setChecked(false);
 
       //    ui.mTools->setCurrentIndex(1);
     }
@@ -692,6 +724,14 @@ void Mainframe::initializeIcons() {
 
   {
     QIcon icon;
+    icon.addPixmap(QPixmap(QString::fromStdString(assertDir + "autoauto.png")));
+
+    ui.actionAutoAutoMode->setIcon(icon);
+    ui.btnAutoAutoMode->setIcon(icon);
+  }
+
+  {
+    QIcon icon;
     icon.addPixmap(QPixmap(QString::fromStdString(assertDir + "polygon.png")));
     ui.actionPolygonMode->setIcon(icon);
     ui.btnPolygonMode->setIcon(icon);
@@ -793,6 +833,11 @@ void Mainframe::keyPressEvent(QKeyEvent* event) {
     case Qt::Key_2:
       changeMode(Viewport::POLYGON, true);
       return;
+
+    case Qt::Key_3:
+      changeMode(Viewport::AUTOAUTO, true);
+      return;
+
     case Qt::Key_R:
       ui.chkRemoveGround->toggle();
       return;

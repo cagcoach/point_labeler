@@ -17,6 +17,8 @@
 #include <QtGui/QMouseEvent>
 #include <QtGui/QWheelEvent>
 #include <QtOpenGL/QGLWidget>
+#include <QProgressDialog>
+
 
 #include <GL/gl.h>
 #include <GL/glu.h>
@@ -52,7 +54,7 @@ class Viewport : public QGLWidget {
  public:
   enum AXIS { XYZ, X, Y, Z };
 
-  enum MODE { NONE, PAINT, POLYGON };
+  enum MODE { NONE, PAINT, POLYGON, AUTOAUTO };
 
   enum FLAGS { FLAG_OVERWRITE = 1, FLAG_OTHER = 2 };
 
@@ -106,6 +108,7 @@ class Viewport : public QGLWidget {
 
  signals:
   void labelingChanged();
+  void carProgressChanged(int value);
 
  public slots:
   /** \brief set axis fixed **/
@@ -146,6 +149,8 @@ class Viewport : public QGLWidget {
     return true;
   }
 
+  QWidget * parent;
+
   void initPrograms();
   void initVertexBuffers();
 
@@ -167,7 +172,8 @@ class Viewport : public QGLWidget {
 
   //  void drawPoints(const std::vector<Point3f>& points, const std::vector<uint32_t>& labels);
   void labelPoints(int32_t x, int32_t y, float radius, uint32_t label, bool remove);
-
+  void selectPolygon(std::vector<glow::vec4>& inpoints);
+  void autoAuto(QProgressDialog* progress);
   bool contextInitialized_;
   std::map<uint32_t, glow::GlColor> mLabelColors;
 
@@ -202,6 +208,8 @@ class Viewport : public QGLWidget {
   glow::GlBuffer<uint32_t> bufLabels_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
   glow::GlBuffer<uint32_t> bufVisible_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
   glow::GlBuffer<glow::vec2> bufScanIndexes_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
+  glow::GlBuffer<glow::vec4> bufCarPoints_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
+
 
   // buffers used for copying points to tile buffers.
   glow::GlBuffer<Point3f> bufTempPoints_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
@@ -211,6 +219,10 @@ class Viewport : public QGLWidget {
 
   glow::GlTransformFeedback tfUpdateLabels_;
   glow::GlBuffer<uint32_t> bufUpdatedLabels_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
+
+  glow::GlTransformFeedback tfSelectPoly_;
+  glow::GlBuffer<uint32_t> bufSelectedPoly_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
+
 
   glow::GlTransformFeedback tfUpdateVisibility_;
   glow::GlBuffer<uint32_t> bufUpdatedVisiblity_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
@@ -227,6 +239,7 @@ class Viewport : public QGLWidget {
   glow::GlVertexArray vao_triangles_;
   glow::GlVertexArray vao_temp_points_;
   glow::GlVertexArray vao_heightmap_points_;
+  glow::GlVertexArray vao_car_points_;
 
   glow::GlProgram prgDrawPose_;
   glow::GlProgram prgDrawPoints_;
@@ -236,12 +249,15 @@ class Viewport : public QGLWidget {
   glow::GlProgram prgFillTilePoints_;
   glow::GlProgram prgDrawFrustum_;
   glow::GlProgram prgDrawHeightmap_;
+  glow::GlProgram prgDrawCarPoints_;
 
   glow::GlFramebuffer fbMinimumHeightMap_;
   glow::GlTexture texMinimumHeightMap_;
   glow::GlTexture texTempHeightMap_;
   glow::GlProgram prgMinimumHeightMap_;
   glow::GlProgram prgAverageHeightMap_;
+
+  glow::GlProgram prgSelectPoly_;
 
   int32_t pointSize_{1};
 
@@ -260,7 +276,12 @@ class Viewport : public QGLWidget {
   float groundThreshold_{-1.6f};
   float groundResolution_{0.5f};
 
+  std::map<std::string, std::vector<glow::vec4>> cars;
+
+  void loadCarModels();
+
   std::vector<glow::vec2> polygonPoints_;
+  std::vector<glow::vec4> carPoints_;
   glow::GlBuffer<glow::vec2> bufPolygonPoints_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
   glow::GlTextureRectangle texTriangles_;
   glow::GlBuffer<glow::vec2> bufTriangles_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};

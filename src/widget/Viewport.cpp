@@ -2,6 +2,7 @@
 #include "data/Math.h"
 #include "data/draw_utils.h"
 #include "data/misc.h"
+#include "libicp/icpPointToPoint.h"
 
 #include <glow/GlCapabilities.h>
 #include <glow/ScopedBinder.h>
@@ -13,12 +14,23 @@
 #include "rv/Stopwatch.h"
 
 #include <glow/GlState.h>
+#include <voro/voro++.hh>
+
+#include <string>
+#include <dirent.h>
+
+#include <QApplication>
+#include <QEventLoop>
+
+#define NUM_THREADS 8
 
 using namespace glow;
 using namespace rv;
 
+
 Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
     : QGLWidget(parent, 0, f),
+      parent(parent),
       contextInitialized_(initContext()),
       mAxis(XYZ),
       mMode(NONE),
@@ -66,6 +78,9 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
   bufUpdatedLabels_.resize(maxPointsPerScan_);
   tfUpdateLabels_.attach({"out_label"}, bufUpdatedLabels_);
 
+  bufSelectedPoly_.resize(maxPointsPerScan_);
+  tfSelectPoly_.attach({"out_inpoly"}, bufSelectedPoly_);
+
   bufUpdatedVisiblity_.resize(maxPointsPerScan_);
   tfUpdateVisibility_.attach({"out_visible"}, bufUpdatedVisiblity_);
 
@@ -101,6 +116,8 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
                              RenderbufferFormat::DEPTH_STENCIL);
   fbMinimumHeightMap_.attach(FramebufferAttachment::DEPTH_STENCIL, depthbuffer);
 
+  loadCarModels();
+
   setAutoFillBackground(false);
 
   cameras_["Default"] = std::make_shared<RoSeCamera>();
@@ -124,6 +141,10 @@ void Viewport::initPrograms() {
   prgDrawPoints_.attach(GlShader::fromCache(ShaderType::VERTEX_SHADER, "shaders/draw_points.vert"));
   prgDrawPoints_.attach(GlShader::fromCache(ShaderType::FRAGMENT_SHADER, "shaders/passthrough.frag"));
   prgDrawPoints_.link();
+
+  prgDrawCarPoints_.attach(GlShader::fromCache(ShaderType::VERTEX_SHADER, "shaders/draw_car_points.vert"));
+  prgDrawCarPoints_.attach(GlShader::fromCache(ShaderType::FRAGMENT_SHADER, "shaders/passthrough.frag"));
+  prgDrawCarPoints_.link();
 
   prgDrawPose_.attach(GlShader::fromCache(ShaderType::VERTEX_SHADER, "shaders/empty.vert"));
   prgDrawPose_.attach(GlShader::fromCache(ShaderType::GEOMETRY_SHADER, "shaders/draw_pose.geom"));
@@ -169,6 +190,11 @@ void Viewport::initPrograms() {
   prgAverageHeightMap_.attach(GlShader::fromCache(ShaderType::FRAGMENT_SHADER, "shaders/average_heightmap.frag"));
   prgAverageHeightMap_.link();
 
+  prgSelectPoly_.attach(GlShader::fromCache(ShaderType::VERTEX_SHADER, "shaders/select_poly.vert"));
+  prgSelectPoly_.attach(GlShader::fromCache(ShaderType::FRAGMENT_SHADER, "shaders/empty.frag"));
+  prgSelectPoly_.attach(tfSelectPoly_);
+  prgSelectPoly_.link();
+
   glow::_CheckGlError(__FILE__, __LINE__);
 }
 
@@ -190,6 +216,8 @@ void Viewport::initVertexBuffers() {
 
   vao_heightmap_points_.setVertexAttribute(0, bufHeightMapPoints_, 2, AttributeType::FLOAT, false, sizeof(glow::vec2),
                                            nullptr);
+
+  vao_car_points_.setVertexAttribute(0, bufCarPoints_, 4, AttributeType::FLOAT, false, sizeof(glow::vec4), nullptr);
 }
 
 /** \brief set axis fixed (x = 1, y = 2, z = 3) **/
@@ -699,11 +727,19 @@ void Viewport::paintGL() {
     texMinimumHeightMap_.release();
   }
 
+  //Draw Cars
+  ScopedBinder<GlProgram> program_binder(prgDrawCarPoints_);
+  ScopedBinder<GlVertexArray> vao_binder(vao_car_points_);
+
+  prgDrawCarPoints_.setUniform(mvp_);
+  glDrawArrays(GL_POINTS, 0, bufCarPoints_.size());
+
+
   glDisable(GL_DEPTH_TEST);
   // Important: QPainter is apparently not working with OpenGL Core Profile < Qt5.9!!!!
   //  http://blog.qt.io/blog/2017/01/27/opengl-core-profile-context-support-qpainter/
   //  QPainter painter(this); // << does not work with OpenGL Core Profile.
-  if (mMode == POLYGON) {
+  if (mMode == POLYGON || mMode == AUTOAUTO ) {
     ScopedBinder<GlProgram> program_binder(prgPolygonPoints_);
 
     vao_polygon_points_.bind();
@@ -854,7 +890,100 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
         texTriangles_.assign(PixelFormat::RGB, PixelType::FLOAT, &texContent[0]);
         bufTriangles_.assign(tris_verts);
 
+        
         labelPoints(event->x(), event->y(), 0, mCurrentLabel, false);
+      }
+
+      polygonPoints_.clear();
+    }
+
+    bufPolygonPoints_.assign(polygonPoints_);
+
+    repaint();
+  } else if (mMode == AUTOAUTO) {
+    if (event->buttons() & Qt::LeftButton) {
+      if (polygonPoints_.size() > 1) {
+        polygonPoints_.clear();
+      }
+      if (polygonPoints_.size() == 0) {
+        polygonPoints_.push_back(vec2(event->x(), event->y()));
+      } else {
+
+        std::vector<vec2> points = polygonPoints_;
+        points.push_back(vec2(event->x(), event->y()));
+
+        vec2 direction;
+        direction.x = points[1].x - points[0].x;
+        direction.y = points[1].y - points[0].y;
+
+        polygonPoints_.push_back(vec2(points[0].x-(0.33333*direction.y), points[0].y+(0.33333*direction.x)));
+        polygonPoints_.push_back(vec2(points[1].x-(0.33333*direction.y), points[1].y+(0.33333*direction.x)));
+        polygonPoints_.push_back(vec2(points[1].x, points[1].y));
+        polygonPoints_.push_back(vec2(points[1].x+(0.33333*direction.y), points[1].y-(0.33333*direction.x)));
+        polygonPoints_.push_back(vec2(points[0].x+(0.33333*direction.y), points[0].y-(0.33333*direction.x)));
+      }
+
+    } else if (event->buttons() & Qt::RightButton) {
+      if (polygonPoints_.size() > 2) {
+        // finish polygon and label points.
+
+        // 1. determine winding: https://blog.element84.com/polygon-winding-post.html
+
+        std::vector<vec2> points = polygonPoints_;
+        
+
+        for (uint32_t i = 0; i < points.size(); ++i) {
+          points[i].y = height() - points[i].y;  // flip y.
+        }
+
+        float winding = 0.0f;
+
+        // important: take also last edge into account!
+        for (uint32_t i = 0; i < points.size(); ++i) {
+          const auto& p = points[(i + 1) % points.size()];
+          const auto& q = points[i];
+
+          winding += (p.x - q.x) * (q.y + p.y);
+        }
+
+        // invert  order if CW order.
+        if (winding > 0) std::reverse(points.begin(), points.end());
+
+        //        if (winding > 0) std::cout << "winding: CW" << std::endl;
+        //        else std::cout << "winding: CCW" << std::endl;
+
+        std::vector<Triangle> triangles;
+        std::vector<glow::vec2> tris_verts;
+
+        triangulate(points, triangles);
+
+        //        std::cout << "#triangles: " << triangles.size() << std::endl;
+
+        std::vector<vec3> texContent(3 * 100);
+        for (uint32_t i = 0; i < triangles.size(); ++i) {
+          auto t = triangles[i];
+          texContent[3 * i + 0] = vec3(t.i.x / width(), (height() - t.i.y) / height(), 0);
+          texContent[3 * i + 1] = vec3(t.j.x / width(), (height() - t.j.y) / height(), 0);
+          texContent[3 * i + 2] = vec3(t.k.x / width(), (height() - t.k.y) / height(), 0);
+
+          tris_verts.push_back(vec2(t.i.x, height() - t.i.y));
+          tris_verts.push_back(vec2(t.j.x, height() - t.j.y));
+          tris_verts.push_back(vec2(t.j.x, height() - t.j.y));
+          tris_verts.push_back(vec2(t.k.x, height() - t.k.y));
+          tris_verts.push_back(vec2(t.k.x, height() - t.k.y));
+          tris_verts.push_back(vec2(t.i.x, height() - t.i.y));
+        }
+
+        numTriangles_ = triangles.size();
+        // note: colors are in range [0,1] for FLOAT!
+        texTriangles_.assign(PixelFormat::RGB, PixelType::FLOAT, &texContent[0]);
+        bufTriangles_.assign(tris_verts);
+        
+        QProgressDialog* progress = new QProgressDialog("Matching Cars...", "Abort", 0, cars.size(), this);
+        progress->setWindowModality(Qt::WindowModal);
+        autoAuto(progress);
+        delete progress;
+
       }
 
       polygonPoints_.clear();
@@ -901,9 +1030,27 @@ void Viewport::mouseReleaseEvent(QMouseEvent* event) {
     }
 
     repaint();
-  }
+  } else if (mMode == AUTOAUTO) {
+    if (polygonPoints_.size() > 1) {
+      polygonPoints_[3] = (vec2(event->x(), event->y()));
 
+      vec2 direction; 
+      direction.x = polygonPoints_[3].x - polygonPoints_[0].x;
+      direction.y = polygonPoints_[3].y - polygonPoints_[0].y;
+
+      polygonPoints_[1] = (vec2(polygonPoints_[0].x-(0.33333*direction.y), polygonPoints_[0].y+(0.33333*direction.x)));
+      polygonPoints_[2] = (vec2(polygonPoints_[3].x-(0.33333*direction.y), polygonPoints_[3].y+(0.33333*direction.x)));
+      
+      polygonPoints_[4] = (vec2(polygonPoints_[3].x+(0.33333*direction.y), polygonPoints_[3].y-(0.33333*direction.x)));
+      polygonPoints_[5] = (vec2(polygonPoints_[0].x+(0.33333*direction.y), polygonPoints_[0].y-(0.33333*direction.x)));
+
+      bufPolygonPoints_.assign(polygonPoints_);
+
+      repaint();
+    }
+  }
   event->accept();
+
 }
 
 void Viewport::mouseMoveEvent(QMouseEvent* event) {
@@ -925,6 +1072,25 @@ void Viewport::mouseMoveEvent(QMouseEvent* event) {
     if (polygonPoints_.size() > 0) {
       polygonPoints_.back().x = event->x();
       polygonPoints_.back().y = event->y();
+
+      bufPolygonPoints_.assign(polygonPoints_);
+
+      repaint();
+    }
+  } else if (mMode == AUTOAUTO) {
+    if (polygonPoints_.size() > 1) {
+      polygonPoints_[3] = (vec2(event->x(), event->y()));
+
+      vec2 direction;
+      direction.x = polygonPoints_[3].x - polygonPoints_[0].x;
+      direction.y = polygonPoints_[3].y - polygonPoints_[0].y;
+
+
+      polygonPoints_[1] = (vec2(polygonPoints_[0].x-(0.33333*direction.y), polygonPoints_[0].y+(0.33333*direction.x)));
+      polygonPoints_[2] = (vec2(polygonPoints_[3].x-(0.33333*direction.y), polygonPoints_[3].y+(0.33333*direction.x)));
+      
+      polygonPoints_[4] = (vec2(polygonPoints_[3].x+(0.33333*direction.y), polygonPoints_[3].y-(0.33333*direction.x)));
+      polygonPoints_[5] = (vec2(polygonPoints_[0].x+(0.33333*direction.y), polygonPoints_[0].y-(0.33333*direction.x)));
 
       bufPolygonPoints_.assign(polygonPoints_);
 
@@ -1095,7 +1261,9 @@ void Viewport::labelPoints(int32_t x, int32_t y, float radius, uint32_t new_labe
     tfUpdateLabels_.end();
 
     bufUpdatedLabels_.copyTo(0, size, bufLabels_, buffer_start + count * max_size);
-
+    std::vector<uint32_t> bufout;
+    
+    
     count++;
   }
 
@@ -1325,4 +1493,348 @@ void Viewport::setCameraByName(const std::string& name) {
   if (cameras_.find(name) == cameras_.end()) return;
 
   setCamera(cameras_[name]);
+}
+
+void Viewport::selectPolygon(std::vector<glow::vec4>& inpoints) {
+  if (points_.size() == 0 || labels_.size() == 0) return;
+
+  ScopedBinder<GlVertexArray> vaoBinder(vao_points_);
+  ScopedBinder<GlProgram> programBinder(prgSelectPoly_);
+  ScopedBinder<GlTransformFeedback> feedbackBinder(tfSelectPoly_);  
+
+  prgSelectPoly_.setUniform(GlUniform<int32_t>("width", width()));
+  prgSelectPoly_.setUniform(GlUniform<int32_t>("height", height()));
+  prgSelectPoly_.setUniform(GlUniform<bool>("removeGround", removeGround_));
+  prgSelectPoly_.setUniform(GlUniform<float>("groundThreshold", groundThreshold_));
+  prgSelectPoly_.setUniform(GlUniform<vec2>("tilePos", tilePos_));
+  prgSelectPoly_.setUniform(GlUniform<float>("tileSize", tileSize_));
+  prgSelectPoly_.setUniform(GlUniform<bool>("showAllPoints", drawingOption_["show all points"]));
+  prgSelectPoly_.setUniform(GlUniform<int32_t>("heightMap", 1));
+  
+  float planeThreshold = planeThreshold_;
+  prgSelectPoly_.setUniform(GlUniform<bool>("planeRemoval", planeRemoval_));
+  prgSelectPoly_.setUniform(GlUniform<int32_t>("planeDimension", planeDimension_));
+  
+  if (planeDimension_ == 0) planeThreshold += tilePos_.x;
+  if (planeDimension_ == 1) planeThreshold += tilePos_.y;
+  if (planeDimension_ == 2 && points_.size() > 0) planeThreshold += points_[0]->pose(3, 3);
+  prgSelectPoly_.setUniform(GlUniform<float>("planeThreshold", planeThreshold));
+  prgSelectPoly_.setUniform(GlUniform<float>("planeDirection", planeDirection_));
+
+  mvp_ = projection_ * mCamera->matrix() * conversion_;
+  prgSelectPoly_.setUniform(mvp_);
+  prgSelectPoly_.setUniform(GlUniform<int32_t>("numTriangles", numTriangles_));
+  
+  glActiveTexture(GL_TEXTURE0);
+  texTriangles_.bind();
+
+  glActiveTexture(GL_TEXTURE1);
+  texMinimumHeightMap_.bind();
+
+  glEnable(GL_RASTERIZER_DISCARD);
+
+  uint32_t count = 0;
+  uint32_t max_size = bufSelectedPoly_.size();
+  uint32_t buffer_start = 0;
+  uint32_t buffer_size = bufLabels_.size();
+  
+  while (count * max_size < buffer_size) {
+    uint32_t size = std::min<uint32_t>(max_size, buffer_size - count * max_size);
+    uint32_t bufferpos = buffer_start + count * max_size;
+    tfSelectPoly_.begin(TransformFeedbackMode::POINTS);
+    glDrawArrays(GL_POINTS, bufferpos, size);
+    tfSelectPoly_.end();
+
+    std::vector<uint32_t> bufout;
+    std::vector<glow::vec4> bufpoints;
+    
+    bufSelectedPoly_.get(bufout);
+    
+    assert(bufSelectedPoly_.size == bufSelectedPoly_.size);
+    for (uint32_t i = 0; i < size; ++i){
+      if (bufout[i]){
+        std::vector<glow::vec4> buffer(1);
+        bufPoints_.get(buffer,bufferpos+i,1);
+        inpoints.push_back(buffer[0]);
+      }
+    }
+
+    count++;
+  }
+  std::cout << inpoints.size() << std::endl;
+
+  glDisable(GL_RASTERIZER_DISCARD);
+
+  glActiveTexture(GL_TEXTURE0);
+  texTriangles_.release();
+  glActiveTexture(GL_TEXTURE1);
+  texMinimumHeightMap_.release();
+}
+
+void Viewport::autoAuto(QProgressDialog* progress) {
+  
+  //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+  int carprogress=0;
+
+  //inverse projection Matrix
+  Eigen::Matrix4f mvpinv_ = conversion_.inverse() * mCamera->matrix().inverse() * projection_.inverse();
+
+  //convert clicked points to a direction
+  Eigen::Vector4f head;
+  Eigen::Vector4f tail;
+  head<<polygonPoints_[0].x, -polygonPoints_[0].y,0,0;
+  tail<<polygonPoints_[3].x, -polygonPoints_[3].y,0,0;
+
+  head = mvpinv_ * head;
+  tail = mvpinv_ * tail;
+  Eigen::Vector4f dir = (head-tail);
+
+  //list on points in the block
+  std::vector<glow::vec4> pts;
+  selectPolygon(pts);
+
+  if(pts.size()<8){
+    std::cout<<"not enough points"<<std::endl;
+    return;
+  }
+  
+  //calculate box size
+  std::vector<float> xlist;
+  std::vector<float> ylist;
+  std::vector<float> zlist;
+
+  for(auto const& value: pts) {
+    xlist.push_back(value.x);
+    ylist.push_back(value.y);
+    zlist.push_back(value.z);
+  }
+  std::sort (xlist.begin(), xlist.end());
+  std::sort (ylist.begin(), ylist.end());
+  std::sort (zlist.begin(), zlist.end());
+
+
+  Eigen::Vector4f vec20; 
+  vec20 << 
+    xlist[floor(xlist.size()*0.2)],
+    ylist[floor(ylist.size()*0.2)],
+    zlist[floor(zlist.size()*0.2)],
+    1;
+  Eigen::Vector4f vec80;
+  vec80 << 
+    xlist[floor(xlist.size()*0.8)],
+    ylist[floor(ylist.size()*0.8)],
+    zlist[floor(zlist.size()*0.8)],
+    1;
+  
+  Eigen::Vector4f carpos = vec20 + (0.5 * (vec80-vec20));
+
+
+  //compute car rotation matrix
+  Eigen::Vector3f f; f<<dir.x(),dir.y(),dir.z();
+  f=f.normalized();
+  Eigen::Vector3f u; u<<0,0,1;
+  Eigen::Vector3f s = f.cross(u).normalized();
+  u = s.cross(f).normalized();
+
+
+  Eigen::Matrix4f rottransmat;
+  rottransmat << s.x(), u.x(),-f.x(), carpos.x(),
+                 s.y(), u.y(),-f.y(), carpos.y(),
+                 s.z(), u.z(),-f.z(), carpos.z(),
+                 0.,0.,0.,1.;
+
+  Eigen::Matrix4f carOrientation;
+  carOrientation << -1,0,0,0,
+                    0,0,1,0,
+                    0,1,0,0,
+                    0,0,0,1;
+
+  rottransmat*=carOrientation;
+
+  FLOAT r[] = {
+    rottransmat(0,0),rottransmat(0,1),rottransmat(0,2),
+    rottransmat(1,0),rottransmat(1,1),rottransmat(1,2),
+    rottransmat(2,0),rottransmat(2,1),rottransmat(2,2)
+  };
+  FLOAT t[] = {
+    rottransmat(0,3),
+    rottransmat(1,3),
+    rottransmat(2,3)
+  };
+
+  std::vector<double> pts_;
+  for(auto const& value: pts) {
+    //std::cout<<value.x<<" "<<value.y<<" "<<value.z<<" "<<std::endl;
+    pts_.push_back(value.x);
+    pts_.push_back(value.y);
+    pts_.push_back(value.z);
+  }
+
+  std::map<std::string,std::vector<glow::vec4>> cars_out;
+  std::map<std::string,uint32_t> cars_inlier;
+
+  int num_threads=std::min(NUM_THREADS,(int)cars.size());
+  ctpl::thread_pool* p = new ctpl::thread_pool(num_threads);
+  std::cout<<"Threads: "<<num_threads<<std::endl;
+  for (auto const& x : cars) {
+    cars_out.insert({x.first,std::vector<glow::vec4>()});
+    cars_inlier.insert({x.first,0});
+    std::cout<<x.first<<": "<<" Added to vector"<<std::endl;
+  }
+  for (auto const& x : cars) {
+    p->push([&, x](int){ 
+      QObject::connect(this, SIGNAL(carProgressChanged(int)), progress, SLOT(setValue(int)));
+      Matrix r_(3,3,r);
+      Matrix t_(3,1,t);
+      std::cout<<x.first<<": "<<x.second.size()<<" Car-Points"<<std::endl;
+
+      std::cout<<x.first<<std::endl;
+      std::vector<glow::vec4> moveit=x.second;
+
+      
+      std::vector<double> car_;
+      for(auto const& value: moveit) {
+        //std::cout<<value.x<<" "<<value.y<<" "<<value.z<<" "<<std::endl;
+        car_.push_back(value.x);
+        car_.push_back(value.y);
+        car_.push_back(value.z);
+      }
+      
+      //add street for fitting
+      Eigen::Vector3f mincar;
+      mincar << moveit[0].x, moveit[0].y, moveit[0].z;
+      Eigen::Vector3f maxcar;
+      maxcar << moveit[0].x, moveit[0].y, moveit[0].z;
+      
+      for(auto const& value: moveit) {
+        if (mincar.x() > value.x) (mincar.x() = value.x);
+        if (mincar.y() > value.y) (mincar.y() = value.y);
+        if (mincar.z() > value.z) (mincar.z() = value.z);
+        if (maxcar.x() < value.x) (maxcar.x() = value.x);
+        if (maxcar.y() < value.y) (maxcar.y() = value.y);
+        if (maxcar.z() < value.z) (maxcar.z() = value.z);
+      }
+
+        //std::cout<<value.x<<" "<<value.y<<" "<<value.z<<" "<<std::endl;
+
+      std::cout<<"min: "<<mincar<<std::endl;
+
+      std::cout<<"max: "<<maxcar<<std::endl;
+
+
+      for(float i=mincar.x()-0.1; i<=maxcar.x()+0.1; i+=0.05){
+        for(float j=mincar.y()-0.1; j<=maxcar.y()+0.1; j+=0.05){
+          car_.push_back(i);
+          car_.push_back(j);
+          car_.push_back(mincar.z());
+          //moveit.push_back(vec4(i,j,mincar.z(),1));
+
+        }
+      }
+
+
+      IcpPointToPoint icp(pts_.data(),pts_.size()/3,3);
+      icp.fit(&car_[0],car_.size()/3,r_,t_,-1);
+
+      FLOAT r2[9];
+      FLOAT t2[3];
+      r_.getData(r2,0,0,2,2);
+      t_.getData(t2,0,0,2,0);
+
+      Matrix r_2(r_);
+      Matrix t_2(t_);
+
+      r_2.inv();
+      t_2=r_2*t_2*-1;
+
+      IcpPointToPoint icp2(car_.data(),car_.size()/3,3,(float)1e10); //set min delta to "very high"
+      cars_inlier[x.first]=icp2.getInlierSize(&pts_[0],pts_.size()/3,r_2,t_2,0.1);
+
+      Eigen::Matrix4f newrotmat;
+      newrotmat <<
+        r2[0], r2[1],r2[2], t2[0],
+        r2[3], r2[4],r2[5], t2[1],
+        r2[6], r2[7],r2[8], t2[2],
+        0.,0.,0.,1.;
+
+      
+
+      for(auto& value: moveit) {
+        Eigen::Vector4f v;
+        v << value.x,value.y,value.z,1;
+        v = newrotmat * v;
+        cars_out[x.first].push_back(vec4(v.x(),v.y(),v.z(),1));
+      }
+      std::cout<<x.first<<": "<<x.second.size()<<" Car-Points"<<std::endl;
+
+      std::cout<<x.first<<": "<<cars_out[x.first].size()<<" Car-Points"<<std::endl;
+      //progress->setValue(carprogress++);
+      emit carProgressChanged(carprogress++);
+      //updateGL();
+      //QApplication::processEvents( QEventLoop::ExcludeUserInputEvents);
+      
+    });
+  }
+  //p.stop();
+
+  delete p; //call destructor to wait untill all runs are finished.
+
+  //std::pair<std::string,uint32_t> maxinlier("NULL",0);
+  
+  typedef std::function<bool(std::pair<std::string, uint32_t>, std::pair<std::string, uint32_t>)> Comparator;
+  Comparator cmp = [](std::pair<std::string,uint32_t> const & a, std::pair<std::string,uint32_t> const & b) 
+  { 
+       return a.second > b.second;
+  };
+
+  std::set<std::pair<std::string, uint32_t>, Comparator> cars_inlier_highscore(cars_inlier.begin(), cars_inlier.end(), cmp);
+ 
+
+
+  for (auto const& x : cars) {
+    /*if (cars_inlier[x.first]>=maxinlier.second){
+      maxinlier.first=x.first;
+      maxinlier.second=cars_inlier[x.first];
+    }*/
+    std::cout<<x.first<<": "<<cars_out[x.first].size()<<" Car-Points, "<<cars_inlier[x.first]<<" Inliers"<<std::endl;
+    //carPoints_= cars_out[x.first];
+  }
+
+  std::cout<<"MAX: "<<cars_inlier_highscore.begin()->first<<": "<<cars_out[cars_inlier_highscore.begin()->first].size()<<" Car-Points, "<<cars_inlier_highscore.begin()->second<<" Inliers"<<std::endl;
+  carPoints_= cars_out[cars_inlier_highscore.begin()->first];
+  bufCarPoints_.assign(carPoints_);
+  
+  updateGL();
+
+
+
+
+}
+
+void Viewport::loadCarModels(){
+  auto dirp = opendir("../cars");
+  if (dirp == NULL){
+    std::cout << "Cars-Folder not found." <<std::endl;
+    return;
+  }
+  
+  struct dirent* dp;
+  while ((dp = readdir(dirp)) != NULL) {
+    if (std::string(dp->d_name).length() < 4) continue; 
+    if (0 != std::string(dp->d_name).compare (std::string(dp->d_name).length() - 4, 4, ".xyz")) continue; 
+
+    std::basic_string<char> filepath = (std::string("../cars/")+(dp->d_name)).c_str();
+    std::cout << filepath <<std::endl;
+
+    std::ifstream infile(filepath);
+    float x, y, z, a,b,c;
+    while (infile >> x >> y >> z >> a >> b >> c)
+    {
+        cars[dp->d_name].push_back(vec4(x,y,z,1));
+    }
+    //carPoints=cars[dp->d_name];
+    continue; //DEBUG ONLY ONE CAR!
+
+  }
+  (void)closedir(dirp);
 }
