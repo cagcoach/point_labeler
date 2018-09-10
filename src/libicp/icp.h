@@ -38,7 +38,7 @@ public:
   // input: M ....... pointer to first model point
   //        M_num ... number of model points
   //        dim   ... dimensionality of model points (2 or 3)
-  Icp (double *M,const int32_t M_num,const int32_t dim, const float min_delta=1e-5);
+  Icp (const double *M,const int32_t M_num,const int32_t dim, const float min_delta=1e-5);
   
   // deconstructor
   virtual ~Icp ();
@@ -58,7 +58,7 @@ public:
   // output: R ....... final rotation matrix
   //         t ....... final translation vector
   void fit(double *T,const int32_t T_num,Matrix &R,Matrix &t,const double indist);
-  uint32_t getInlierSize(double *T,const int32_t T_num,Matrix &R,Matrix &t,const double indist);
+  uint32_t getInlierSize(const double *T,const int32_t T_num,Matrix &R,Matrix &t,const double indist);
   
 private:
   
@@ -67,7 +67,7 @@ private:
   
   // inherited classes need to overwrite these functions
   virtual double               fitStep(double *T,const int32_t T_num,Matrix &R,Matrix &t,const std::vector<int32_t> &active) = 0;
-  virtual std::vector<int32_t> getInliers(double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist) = 0;
+  virtual std::vector<int32_t> getInliers(const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist) = 0;
   
 protected:
   

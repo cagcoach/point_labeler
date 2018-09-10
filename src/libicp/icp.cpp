@@ -22,7 +22,7 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 using namespace std;
 
-Icp::Icp (double *M,const int32_t M_num,const int32_t dim, const float min_delta) :
+Icp::Icp (const double *M,const int32_t M_num,const int32_t dim, const float min_delta) :
   dim(dim), max_iter(300), min_delta(min_delta) {
   
   // check for correct dimensionality
@@ -83,7 +83,7 @@ void Icp::fit (double *T,const int32_t T_num,Matrix &R,Matrix &t,const double in
   fitIterate(T,T_num,R,t,active);
 }
 
-uint32_t Icp::getInlierSize (double *T,const int32_t T_num,Matrix &R,Matrix &t,const double indist) {
+uint32_t Icp::getInlierSize (const double *T,const int32_t T_num,Matrix &R,Matrix &t,const double indist) {
   
   // make sure we have a model tree
   if (!M_tree) {

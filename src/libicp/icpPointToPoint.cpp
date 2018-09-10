@@ -180,7 +180,7 @@ double IcpPointToPoint::fitStep (double *T,const int32_t T_num,Matrix &R,Matrix 
   else        return max((R_-Matrix::eye(3)).l2norm(),t_.l2norm());
 }
 
-std::vector<int32_t> IcpPointToPoint::getInliers (double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist) {
+std::vector<int32_t> IcpPointToPoint::getInliers (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist) {
 
   // init inlier vector + query point + query result
   vector<int32_t>            inliers;

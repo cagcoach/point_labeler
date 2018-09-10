@@ -42,6 +42,7 @@ class Mainframe : public QMainWindow {
   void updateScans();
   void activateSpinner();
 
+
   void forward();
   void backward();
 

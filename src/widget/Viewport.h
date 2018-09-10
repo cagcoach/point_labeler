@@ -34,6 +34,9 @@
 #include <glow/util/GlCamera.h>
 #include <glow/util/RoSeCamera.h>
 #include "CADCamera.h"
+#include "AutoAuto.h"
+#include "Car.h"
+
 
 #include "common.h"
 
@@ -108,7 +111,6 @@ class Viewport : public QGLWidget {
 
  signals:
   void labelingChanged();
-  void carProgressChanged(int value);
 
  public slots:
   /** \brief set axis fixed **/
@@ -129,6 +131,9 @@ class Viewport : public QGLWidget {
   void keyPressEvent(QKeyEvent*);
   void keyReleaseEvent(QKeyEvent*);
   void setFlipMouseButtons(bool value);
+
+  void afterAutoAuto(AutoAuto* a_);
+  void updateProgressbar(float progress);
 
  protected:
   bool initContext() {
@@ -173,7 +178,8 @@ class Viewport : public QGLWidget {
   //  void drawPoints(const std::vector<Point3f>& points, const std::vector<uint32_t>& labels);
   void labelPoints(int32_t x, int32_t y, float radius, uint32_t label, bool remove);
   void selectPolygon(std::vector<glow::vec4>& inpoints);
-  void autoAuto(QProgressDialog* progress);
+  void applyAutoAuto(std::shared_ptr<AutoAuto> a);
+
   bool contextInitialized_;
   std::map<uint32_t, glow::GlColor> mLabelColors;
 
@@ -276,10 +282,12 @@ class Viewport : public QGLWidget {
   float groundThreshold_{-1.6f};
   float groundResolution_{0.5f};
 
-  std::map<std::string, std::vector<glow::vec4>> cars;
 
-  void loadCarModels();
+  //void loadCarModels();
 
+  //AutoAuto autoAuto{"../cars"};
+  std::map<AutoAuto*, std::shared_ptr<AutoAuto>> autoautos;
+  std::shared_ptr<std::map<std::string, Car>> cars_;
   std::vector<glow::vec2> polygonPoints_;
   std::vector<glow::vec4> carPoints_;
   glow::GlBuffer<glow::vec2> bufPolygonPoints_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
@@ -309,6 +317,8 @@ class Viewport : public QGLWidget {
   bool flipMouseButtons{false};
 
   CameraProjection projectionMode_{CameraProjection::perspective};
+  QProgressDialog* progressdiag{nullptr};
+
 };
 
 #endif /* POINTVIEW_H_ */

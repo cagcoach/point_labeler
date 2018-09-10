@@ -16,13 +16,9 @@
 #include <glow/GlState.h>
 #include <voro/voro++.hh>
 
-#include <string>
-#include <dirent.h>
-
 #include <QApplication>
 #include <QEventLoop>
 
-#define NUM_THREADS 8
 
 using namespace glow;
 using namespace rv;
@@ -116,7 +112,7 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
                              RenderbufferFormat::DEPTH_STENCIL);
   fbMinimumHeightMap_.attach(FramebufferAttachment::DEPTH_STENCIL, depthbuffer);
 
-  loadCarModels();
+
 
   setAutoFillBackground(false);
 
@@ -194,6 +190,8 @@ void Viewport::initPrograms() {
   prgSelectPoly_.attach(GlShader::fromCache(ShaderType::FRAGMENT_SHADER, "shaders/empty.frag"));
   prgSelectPoly_.attach(tfSelectPoly_);
   prgSelectPoly_.link();
+
+  cars_ = AutoAuto::loadCarModels("../cars");
 
   glow::_CheckGlError(__FILE__, __LINE__);
 }
@@ -979,10 +977,12 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
         texTriangles_.assign(PixelFormat::RGB, PixelType::FLOAT, &texContent[0]);
         bufTriangles_.assign(tris_verts);
         
-        QProgressDialog* progress = new QProgressDialog("Matching Cars...", "Abort", 0, cars.size(), this);
-        progress->setWindowModality(Qt::WindowModal);
-        autoAuto(progress);
-        delete progress;
+        //QProgressDialog* progress = new QProgressDialog("Matching Cars...", "Abort", 0, cars.size(), this);
+        //progress->setWindowModality(Qt::WindowModal);
+        auto a = std::make_shared<AutoAuto>(cars_);
+        autoautos[a.get()] =a; //take a normal pointer as ID for the shared_ptr
+        applyAutoAuto(a);
+        //delete progress;
 
       }
 
@@ -1571,10 +1571,9 @@ void Viewport::selectPolygon(std::vector<glow::vec4>& inpoints) {
   texMinimumHeightMap_.release();
 }
 
-void Viewport::autoAuto(QProgressDialog* progress) {
+void Viewport::applyAutoAuto(std::shared_ptr<AutoAuto> a) {
   
   //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-  int carprogress=0;
 
   //inverse projection Matrix
   Eigen::Matrix4f mvpinv_ = conversion_.inverse() * mCamera->matrix().inverse() * projection_.inverse();
@@ -1597,244 +1596,49 @@ void Viewport::autoAuto(QProgressDialog* progress) {
     std::cout<<"not enough points"<<std::endl;
     return;
   }
-  
-  //calculate box size
-  std::vector<float> xlist;
-  std::vector<float> ylist;
-  std::vector<float> zlist;
-
-  for(auto const& value: pts) {
-    xlist.push_back(value.x);
-    ylist.push_back(value.y);
-    zlist.push_back(value.z);
-  }
-  std::sort (xlist.begin(), xlist.end());
-  std::sort (ylist.begin(), ylist.end());
-  std::sort (zlist.begin(), zlist.end());
-
-
-  Eigen::Vector4f vec20; 
-  vec20 << 
-    xlist[floor(xlist.size()*0.2)],
-    ylist[floor(ylist.size()*0.2)],
-    zlist[floor(zlist.size()*0.2)],
-    1;
-  Eigen::Vector4f vec80;
-  vec80 << 
-    xlist[floor(xlist.size()*0.8)],
-    ylist[floor(ylist.size()*0.8)],
-    zlist[floor(zlist.size()*0.8)],
-    1;
-  
-  Eigen::Vector4f carpos = vec20 + (0.5 * (vec80-vec20));
-
-
-  //compute car rotation matrix
-  Eigen::Vector3f f; f<<dir.x(),dir.y(),dir.z();
-  f=f.normalized();
-  Eigen::Vector3f u; u<<0,0,1;
-  Eigen::Vector3f s = f.cross(u).normalized();
-  u = s.cross(f).normalized();
-
-
-  Eigen::Matrix4f rottransmat;
-  rottransmat << s.x(), u.x(),-f.x(), carpos.x(),
-                 s.y(), u.y(),-f.y(), carpos.y(),
-                 s.z(), u.z(),-f.z(), carpos.z(),
-                 0.,0.,0.,1.;
-
-  Eigen::Matrix4f carOrientation;
-  carOrientation << -1,0,0,0,
-                    0,0,1,0,
-                    0,1,0,0,
-                    0,0,0,1;
-
-  rottransmat*=carOrientation;
-
-  FLOAT r[] = {
-    rottransmat(0,0),rottransmat(0,1),rottransmat(0,2),
-    rottransmat(1,0),rottransmat(1,1),rottransmat(1,2),
-    rottransmat(2,0),rottransmat(2,1),rottransmat(2,2)
-  };
-  FLOAT t[] = {
-    rottransmat(0,3),
-    rottransmat(1,3),
-    rottransmat(2,3)
-  };
-
-  std::vector<double> pts_;
-  for(auto const& value: pts) {
-    //std::cout<<value.x<<" "<<value.y<<" "<<value.z<<" "<<std::endl;
-    pts_.push_back(value.x);
-    pts_.push_back(value.y);
-    pts_.push_back(value.z);
-  }
-
-  std::map<std::string,std::vector<glow::vec4>> cars_out;
-  std::map<std::string,uint32_t> cars_inlier;
-
-  int num_threads=std::min(NUM_THREADS,(int)cars.size());
-  ctpl::thread_pool* p = new ctpl::thread_pool(num_threads);
-  std::cout<<"Threads: "<<num_threads<<std::endl;
-  for (auto const& x : cars) {
-    cars_out.insert({x.first,std::vector<glow::vec4>()});
-    cars_inlier.insert({x.first,0});
-    std::cout<<x.first<<": "<<" Added to vector"<<std::endl;
-  }
-  for (auto const& x : cars) {
-    p->push([&, x](int){ 
-      QObject::connect(this, SIGNAL(carProgressChanged(int)), progress, SLOT(setValue(int)));
-      Matrix r_(3,3,r);
-      Matrix t_(3,1,t);
-      std::cout<<x.first<<": "<<x.second.size()<<" Car-Points"<<std::endl;
-
-      std::cout<<x.first<<std::endl;
-      std::vector<glow::vec4> moveit=x.second;
-
-      
-      std::vector<double> car_;
-      for(auto const& value: moveit) {
-        //std::cout<<value.x<<" "<<value.y<<" "<<value.z<<" "<<std::endl;
-        car_.push_back(value.x);
-        car_.push_back(value.y);
-        car_.push_back(value.z);
-      }
-      
-      //add street for fitting
-      Eigen::Vector3f mincar;
-      mincar << moveit[0].x, moveit[0].y, moveit[0].z;
-      Eigen::Vector3f maxcar;
-      maxcar << moveit[0].x, moveit[0].y, moveit[0].z;
-      
-      for(auto const& value: moveit) {
-        if (mincar.x() > value.x) (mincar.x() = value.x);
-        if (mincar.y() > value.y) (mincar.y() = value.y);
-        if (mincar.z() > value.z) (mincar.z() = value.z);
-        if (maxcar.x() < value.x) (maxcar.x() = value.x);
-        if (maxcar.y() < value.y) (maxcar.y() = value.y);
-        if (maxcar.z() < value.z) (maxcar.z() = value.z);
-      }
-
-        //std::cout<<value.x<<" "<<value.y<<" "<<value.z<<" "<<std::endl;
-
-      std::cout<<"min: "<<mincar<<std::endl;
-
-      std::cout<<"max: "<<maxcar<<std::endl;
-
-
-      for(float i=mincar.x()-0.1; i<=maxcar.x()+0.1; i+=0.05){
-        for(float j=mincar.y()-0.1; j<=maxcar.y()+0.1; j+=0.05){
-          car_.push_back(i);
-          car_.push_back(j);
-          car_.push_back(mincar.z());
-          //moveit.push_back(vec4(i,j,mincar.z(),1));
-
-        }
-      }
-
-
-      IcpPointToPoint icp(pts_.data(),pts_.size()/3,3);
-      icp.fit(&car_[0],car_.size()/3,r_,t_,-1);
-
-      FLOAT r2[9];
-      FLOAT t2[3];
-      r_.getData(r2,0,0,2,2);
-      t_.getData(t2,0,0,2,0);
-
-      Matrix r_2(r_);
-      Matrix t_2(t_);
-
-      r_2.inv();
-      t_2=r_2*t_2*-1;
-
-      IcpPointToPoint icp2(car_.data(),car_.size()/3,3,(float)1e10); //set min delta to "very high"
-      cars_inlier[x.first]=icp2.getInlierSize(&pts_[0],pts_.size()/3,r_2,t_2,0.1);
-
-      Eigen::Matrix4f newrotmat;
-      newrotmat <<
-        r2[0], r2[1],r2[2], t2[0],
-        r2[3], r2[4],r2[5], t2[1],
-        r2[6], r2[7],r2[8], t2[2],
-        0.,0.,0.,1.;
-
-      
-
-      for(auto& value: moveit) {
-        Eigen::Vector4f v;
-        v << value.x,value.y,value.z,1;
-        v = newrotmat * v;
-        cars_out[x.first].push_back(vec4(v.x(),v.y(),v.z(),1));
-      }
-      std::cout<<x.first<<": "<<x.second.size()<<" Car-Points"<<std::endl;
-
-      std::cout<<x.first<<": "<<cars_out[x.first].size()<<" Car-Points"<<std::endl;
-      //progress->setValue(carprogress++);
-      emit carProgressChanged(carprogress++);
-      //updateGL();
-      //QApplication::processEvents( QEventLoop::ExcludeUserInputEvents);
-      
-    });
-  }
-  //p.stop();
-
-  delete p; //call destructor to wait untill all runs are finished.
-
-  //std::pair<std::string,uint32_t> maxinlier("NULL",0);
-  
-  typedef std::function<bool(std::pair<std::string, uint32_t>, std::pair<std::string, uint32_t>)> Comparator;
-  Comparator cmp = [](std::pair<std::string,uint32_t> const & a, std::pair<std::string,uint32_t> const & b) 
-  { 
-       return a.second > b.second;
-  };
-
-  std::set<std::pair<std::string, uint32_t>, Comparator> cars_inlier_highscore(cars_inlier.begin(), cars_inlier.end(), cmp);
- 
-
-
-  for (auto const& x : cars) {
-    /*if (cars_inlier[x.first]>=maxinlier.second){
-      maxinlier.first=x.first;
-      maxinlier.second=cars_inlier[x.first];
-    }*/
-    std::cout<<x.first<<": "<<cars_out[x.first].size()<<" Car-Points, "<<cars_inlier[x.first]<<" Inliers"<<std::endl;
-    //carPoints_= cars_out[x.first];
-  }
-
-  std::cout<<"MAX: "<<cars_inlier_highscore.begin()->first<<": "<<cars_out[cars_inlier_highscore.begin()->first].size()<<" Car-Points, "<<cars_inlier_highscore.begin()->second<<" Inliers"<<std::endl;
-  carPoints_= cars_out[cars_inlier_highscore.begin()->first];
+  //AutoAuto a(cars_);
+  connect(a.get(), SIGNAL(carProgressUpdate(float)), this, SLOT(updateProgressbar(float)));
+  connect(a.get(), SIGNAL(carProgressFinished(AutoAuto*)),this, SLOT(afterAutoAuto(AutoAuto*)));
+  a->matchPosition(pts,dir);
+   
+  /*std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<matched[0]->getInlier()<<" Inliers"<<std::endl;
+  carPoints_= *(matched[0]->getGlobalPoints());
+  std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<carPoints_.size()<<" Points"<<std::endl;
   bufCarPoints_.assign(carPoints_);
-  
-  updateGL();
-
-
-
+  */
+  //updateGL();
 
 }
 
-void Viewport::loadCarModels(){
-  auto dirp = opendir("../cars");
-  if (dirp == NULL){
-    std::cout << "Cars-Folder not found." <<std::endl;
-    return;
+void Viewport::afterAutoAuto(AutoAuto* a_) {
+  std::cout<<"SIGNAL"<<std::endl;
+  auto a = autoautos[a_]; //get shared_ptr of a_
+  auto matched = a->getResults();
+  std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<matched[0]->getInlier()<<" Inliers"<<std::endl;
+  carPoints_= *(matched[0]->getGlobalPoints());
+  std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<carPoints_.size()<<" Points"<<std::endl;
+  bufCarPoints_.assign(carPoints_);
+  Eigen::Matrix4f pose = matched[0]->getPosition();
+  mCamera->lookAt(-pose(1,3) + 5, pose(2,3) + 1, -pose(0,3) + 5, -pose(1,3), pose(2,3), -pose(0,3));
+  updateGL();
+
+}
+
+
+void Viewport::updateProgressbar(float progress){
+  if (progressdiag == nullptr && progress<1){
+    progressdiag = new QProgressDialog("Operation in progress.", "Cancel", 0, 100);
+    progressdiag->setCancelButton(0);
+    progressdiag->show();
+    std::cout<<"SHOW"<<std::endl;
   }
-  
-  struct dirent* dp;
-  while ((dp = readdir(dirp)) != NULL) {
-    if (std::string(dp->d_name).length() < 4) continue; 
-    if (0 != std::string(dp->d_name).compare (std::string(dp->d_name).length() - 4, 4, ".xyz")) continue; 
+  if (progress >= 1){
+    delete progressdiag;
+    progressdiag = nullptr;
+    std::cout<<"HIDE"<<std::endl;
 
-    std::basic_string<char> filepath = (std::string("../cars/")+(dp->d_name)).c_str();
-    std::cout << filepath <<std::endl;
-
-    std::ifstream infile(filepath);
-    float x, y, z, a,b,c;
-    while (infile >> x >> y >> z >> a >> b >> c)
-    {
-        cars[dp->d_name].push_back(vec4(x,y,z,1));
-    }
-    //carPoints=cars[dp->d_name];
-    continue; //DEBUG ONLY ONE CAR!
-
+  } else{
+    progressdiag->setValue(progress*100);
+    std::cout<<"UPDATE"<<std::endl;
   }
-  (void)closedir(dirp);
 }

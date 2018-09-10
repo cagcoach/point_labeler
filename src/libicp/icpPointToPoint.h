@@ -32,15 +32,15 @@ class IcpPointToPoint : public Icp {
 
 public:
 
-  IcpPointToPoint (double *M,const int32_t M_num,const int32_t dim,const float min_delta) : Icp(M,M_num,dim,min_delta) {}
-  IcpPointToPoint (double *M,const int32_t M_num,const int32_t dim) : Icp(M,M_num,dim) {}
+  IcpPointToPoint (const double *M,const int32_t M_num,const int32_t dim,const float min_delta) : Icp(M,M_num,dim,min_delta) {}
+  IcpPointToPoint (const double *M,const int32_t M_num,const int32_t dim) : Icp(M,M_num,dim) {}
 
   virtual ~IcpPointToPoint () {}
 
 private:
   //ctpl::thread_pool p{NUMTHREADS};
   double fitStep (double *T,const int32_t T_num,Matrix &R,Matrix &t,const std::vector<int32_t> &active);
-  std::vector<int32_t> getInliers (double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist);
+  std::vector<int32_t> getInliers (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist);
 };
 
 

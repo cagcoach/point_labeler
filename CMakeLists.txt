@@ -98,6 +98,10 @@ add_executable(labeler
   src/widget/TileSelectorWidget.cpp
   src/widget/waitingspinnerwidget.cpp
   src/widget/ImageViewer.cpp
+  src/widget/Car.h
+  src/widget/AutoAuto.h
+  src/widget/AutoAuto.cpp
+  src/widget/Car.cpp
   src/libicp/icp.cpp
   src/libicp/icp.h
 #  src/libicp/icpPointToPlane.cpp
