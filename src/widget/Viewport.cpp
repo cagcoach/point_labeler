@@ -3,6 +3,7 @@
 #include "data/draw_utils.h"
 #include "data/misc.h"
 #include "libicp/icpPointToPoint.h"
+#include "CarDialog.h"
 
 #include <glow/GlCapabilities.h>
 #include <glow/ScopedBinder.h>
@@ -192,6 +193,7 @@ void Viewport::initPrograms() {
   prgSelectPoly_.link();
 
   cars_ = AutoAuto::loadCarModels("../cars");
+  autoautos = std::make_shared<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>>();
 
   glow::_CheckGlError(__FILE__, __LINE__);
 }
@@ -979,9 +981,7 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
         
         //QProgressDialog* progress = new QProgressDialog("Matching Cars...", "Abort", 0, cars.size(), this);
         //progress->setWindowModality(Qt::WindowModal);
-        auto a = std::make_shared<AutoAuto>(cars_);
-        autoautos[a.get()] =a; //take a normal pointer as ID for the shared_ptr
-        applyAutoAuto(a);
+        applyAutoAuto();
         //delete progress;
 
       }
@@ -1571,8 +1571,11 @@ void Viewport::selectPolygon(std::vector<glow::vec4>& inpoints) {
   texMinimumHeightMap_.release();
 }
 
-void Viewport::applyAutoAuto(std::shared_ptr<AutoAuto> a) {
+void Viewport::applyAutoAuto() {
   
+  auto a = std::make_shared<AutoAuto>(cars_);
+  (*autoautos)[a.get()] = a; //take a normal pointer as ID for the shared_ptr
+
   //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 
   //inverse projection Matrix
@@ -1612,16 +1615,48 @@ void Viewport::applyAutoAuto(std::shared_ptr<AutoAuto> a) {
 
 void Viewport::afterAutoAuto(AutoAuto* a_) {
   std::cout<<"SIGNAL"<<std::endl;
-  auto a = autoautos[a_]; //get shared_ptr of a_
+  auto a = (*autoautos)[a_]; //get shared_ptr of a_
   auto matched = a->getResults();
-  std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<matched[0]->getInlier()<<" Inliers"<<std::endl;
-  carPoints_= *(matched[0]->getGlobalPoints());
-  std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<carPoints_.size()<<" Points"<<std::endl;
-  bufCarPoints_.assign(carPoints_);
-  Eigen::Matrix4f pose = matched[0]->getPosition();
-  mCamera->lookAt(-pose(1,3) + 5, pose(2,3) + 1, -pose(0,3) + 5, -pose(1,3), pose(2,3), -pose(0,3));
-  updateGL();
+  //std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<matched[0]->getInlier()<<" Inliers"<<std::endl;
+  //carPoints_= *(matched[0]->getGlobalPoints());
+  //std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<carPoints_.size()<<" Points"<<std::endl;
+  //bufCarPoints_.assign(carPoints_);
+  //Eigen::Matrix4f pose = matched[0]->getPosition();
+  //mCamera->lookAt(-pose(1,3) + 5, pose(2,3) + 1, -pose(0,3) + 5, -pose(1,3), pose(2,3), -pose(0,3));
+  //updateGL();
+  tempAutoAuto(a,a->getSelectedCar());
+  CarDialog* cardialog = new CarDialog(a, this);
+  connect(cardialog, SIGNAL(changeCar(std::shared_ptr<AutoAuto>, int)),this, SLOT(tempAutoAuto(std::shared_ptr<AutoAuto>, int)));
+  connect(cardialog, SIGNAL(saveCar(std::shared_ptr<AutoAuto>)),this, SLOT(addAutoAutoToWorld(std::shared_ptr<AutoAuto>)));
+  connect(cardialog, SIGNAL(windowClosed()),this, SLOT(updateAutoAuto()));
 
+  cardialog->show();
+}
+
+void Viewport::tempAutoAuto(std::shared_ptr<AutoAuto> a, int id){
+  auto matched = a->getResults();
+  std::vector<glow::vec4> temppoints = *(matched[id]->getGlobalPoints());
+  carPoints_.clear();
+  for (auto const& c:carsInWorld_){
+    carPoints_.insert(carPoints_.end(),c.second.begin(),c.second.end());
+  }
+  carPoints_.insert(carPoints_.end(),temppoints.begin(),temppoints.end());
+  bufCarPoints_.assign(carPoints_);
+  updateGL();
+}
+
+void Viewport::addAutoAutoToWorld(std::shared_ptr<AutoAuto> a){
+  carsInWorld_[a] = *(a->getResults()[a->getSelectedCar()]->getGlobalPoints());
+  updateAutoAuto();
+}
+
+void Viewport::updateAutoAuto(){
+  carPoints_.clear();
+  for (auto const& c:carsInWorld_){
+    carPoints_.insert(carPoints_.end(),c.second.begin(),c.second.end());
+  }
+  bufCarPoints_.assign(carPoints_);
+  updateGL();
 }
 
 
@@ -1641,4 +1676,12 @@ void Viewport::updateProgressbar(float progress){
     progressdiag->setValue(progress*100);
     std::cout<<"UPDATE"<<std::endl;
   }
+}
+
+std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> Viewport::getAutoAutos(){
+  return autoautos;
+}
+
+std::shared_ptr<std::map<std::string, Car>> Viewport::getCars(){
+  return cars_;
 }

@@ -294,6 +294,8 @@ void Mainframe::open() {
     }
 
     reader_.initialize(retValue);
+    aar_.initialize(retValue,ui.mViewportXYZ->getAutoAutos(),ui.mViewportXYZ->getCars());
+
 
     //    ui.sldTimeline->setMaximum(reader_.count());
     ui.btnBackward->setEnabled(false);
@@ -318,6 +320,11 @@ void Mainframe::open() {
     setWindowTitle(title);
 
     mChangesSinceLastSave = false;
+    aar_.load();
+
+    for(auto const& r:(*ui.mViewportXYZ->getAutoAutos())){
+      ui.mViewportXYZ->addAutoAutoToWorld(r.second);
+    }
   }
 }
 
@@ -329,6 +336,7 @@ void Mainframe::save() {
   statusBar()->showMessage("Writing labels...");
   ui.mViewportXYZ->updateLabels();
   reader_.update(indexes_, labels_);
+  aar_.save();
 
   progressLabeled_.setValue(100.0f * ui.mViewportXYZ->labeledPointCount() / ui.mViewportXYZ->loadedPointCount());
 

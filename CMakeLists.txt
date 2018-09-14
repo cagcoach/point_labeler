@@ -101,7 +101,13 @@ add_executable(labeler
   src/widget/Car.h
   src/widget/AutoAuto.h
   src/widget/AutoAuto.cpp
+  src/widget/AutoAutoReader.h
+  src/widget/AutoAutoReader.cpp
   src/widget/Car.cpp
+  src/widget/CarDialog.h
+  src/widget/CarDialog.cpp
+  src/widget/base64.cpp
+  src/widget/base64.h
   src/libicp/icp.cpp
   src/libicp/icp.h
 #  src/libicp/icpPointToPlane.cpp

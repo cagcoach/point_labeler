@@ -8,6 +8,7 @@
 #include <future>
 #include "ImageViewer.h"
 #include "KittiReader.h"
+#include "AutoAutoReader.h"
 #include "LabelButton.h"
 #include "common.h"
 #include "data/geometry.h"
@@ -94,6 +95,8 @@ class Mainframe : public QMainWindow {
   Point3f midpoint;
 
   KittiReader reader_;
+  AutoAutoReader aar_;
+
   std::future<void> readerFuture_;
   WaitingSpinnerWidget* spinner{nullptr};
 

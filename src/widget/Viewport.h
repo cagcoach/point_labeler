@@ -108,6 +108,10 @@ class Viewport : public QGLWidget {
   void setCameraByName(const std::string& name);
 
   void setCameraProjection(const CameraProjection& proj);
+  std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> getAutoAutos();
+  std::shared_ptr<std::map<std::string, Car>> getCars();
+  
+
 
  signals:
   void labelingChanged();
@@ -134,6 +138,9 @@ class Viewport : public QGLWidget {
 
   void afterAutoAuto(AutoAuto* a_);
   void updateProgressbar(float progress);
+  void tempAutoAuto(std::shared_ptr<AutoAuto>, int);
+  void addAutoAutoToWorld(std::shared_ptr<AutoAuto>);
+  void updateAutoAuto();
 
  protected:
   bool initContext() {
@@ -178,7 +185,7 @@ class Viewport : public QGLWidget {
   //  void drawPoints(const std::vector<Point3f>& points, const std::vector<uint32_t>& labels);
   void labelPoints(int32_t x, int32_t y, float radius, uint32_t label, bool remove);
   void selectPolygon(std::vector<glow::vec4>& inpoints);
-  void applyAutoAuto(std::shared_ptr<AutoAuto> a);
+  void applyAutoAuto();
 
   bool contextInitialized_;
   std::map<uint32_t, glow::GlColor> mLabelColors;
@@ -286,10 +293,12 @@ class Viewport : public QGLWidget {
   //void loadCarModels();
 
   //AutoAuto autoAuto{"../cars"};
-  std::map<AutoAuto*, std::shared_ptr<AutoAuto>> autoautos;
+  std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> autoautos;
   std::shared_ptr<std::map<std::string, Car>> cars_;
+  std::map<std::shared_ptr<AutoAuto>, std::vector<glow::vec4>> carsInWorld_;
   std::vector<glow::vec2> polygonPoints_;
   std::vector<glow::vec4> carPoints_;
+
   glow::GlBuffer<glow::vec2> bufPolygonPoints_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
   glow::GlTextureRectangle texTriangles_;
   glow::GlBuffer<glow::vec2> bufTriangles_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};

@@ -8,12 +8,53 @@
 #include "libicp/icpPointToPoint.h"
 #include "libicp/matrix.h"
 #include <QDebug>
-
+#include <climits>
+#include "base64.h"
+#include <string>
 
 
 
 
 using namespace glow;
+
+AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, Car>> cars_, std::string config):cars(cars_) {
+	std::cout<<config<<std::endl;
+	Eigen::Matrix4f pose_;
+	Eigen::Vector4f dir_;
+	std::string ps;
+	std::string model;
+
+	std::istringstream config_stream(config);
+	config_stream >>
+		model >>
+		pose_(0,0) >>
+		pose_(1,0) >>
+		pose_(2,0) >>
+		pose_(0,1) >>
+		pose_(1,1) >>
+		pose_(2,1) >>
+		pose_(0,2) >>
+		pose_(1,2) >>
+		pose_(2,2) >>
+		pose_(0,3) >>
+		pose_(1,3) >>
+		pose_(2,3) >>
+		dir_(0) >>
+		dir_(1) >>
+		dir_(2) >>
+		ps;
+	pose_(3,0) = 0;
+	pose_(3,1) = 0;
+	pose_(3,2) = 0;
+	pose_(3,3) = 1;
+	selectedpts = pointStringToGlowVector(ps, pose_);
+	dir = dir_;
+	auto c = std::make_shared<Car>(cars->find(model)->second);
+	c->setPosition(pose_);
+	results.push_back(c);
+
+	std::cout<<ps<<std::endl;
+}
 
 
 AutoAuto::~AutoAuto(){
@@ -146,9 +187,11 @@ std::shared_ptr<Car> AutoAuto::icpMatch(Car inpc, const std::shared_ptr<std::vec
   return c;
 }
 
-void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Vector4f dir){
+void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Vector4f dir_){
    //calculate box size
   //pool.stop(true);
+  selectedpts = pts;
+  dir = dir_;
   emit carProgressUpdate(0);
   std::vector<float> xlist;
   std::vector<float> ylist;
@@ -273,4 +316,81 @@ void AutoAuto::addResult(std::shared_ptr<Car> result){
 	resultsMutex.lock();
 	results.push_back(result);
 	resultsMutex.unlock();
+}
+
+void AutoAuto::setSelectedCar(int i){
+	selectedcar = i;
+}
+
+int AutoAuto::getSelectedCar(){
+	return selectedcar;
+}
+
+std::string AutoAuto::pointGlowVectorToString(const std::vector<glow::vec4> v,Eigen::Matrix4f pose){
+	std::string outvec = "";
+	std::vector<Eigen::Vector4f> ev;
+	for(const auto& p:v){
+		Eigen::Vector4f e;
+		e<<p.x,p.y,p.z,1;
+		e=pose.inverse()*e*1000;
+		int16_t coords[3];
+		if(e.x()>32767 || e.x()<-32767 ||e.y()>32767 || e.y()<-32767 ||e.z()>32767 || e.z()<-32767){
+			std::cout<<"[ ERROR ]  Coordinates out of Range"<<e.x()<<","<<e.y()<<","<<e.z()<<std::endl;
+			continue;
+		}
+
+		coords[0]=e.x();
+		coords[1]=e.y();
+		coords[2]=e.z();
+
+		outvec += base64_encode((BYTE*) coords, 6);
+		//(char *)coords;
+	}
+	return outvec;
+
+}
+
+std::vector<glow::vec4> AutoAuto::pointStringToGlowVector(const std::string s,Eigen::Matrix4f pose){
+	std::vector<glow::vec4> outvec;
+	for(unsigned int i=0;i<s.length();i+=8){
+		std::vector<BYTE>coords = base64_decode(s.substr(i, 8));
+		Eigen::Vector4f e;
+		e.x() = (float)((int16_t *)coords.data())[0];
+		e.y() = (float)((int16_t *)coords.data())[1];
+		e.z() = (float)((int16_t *)coords.data())[2];
+		e.w() = 1;
+		e=pose*e/1000.;
+		outvec.push_back(glow::vec4(e.x(),e.y(),e.z(),1));
+		
+	}
+	return outvec;
+}
+
+std::string AutoAuto::getString(){
+	return getString(selectedcar);
+}
+
+std::string AutoAuto::getString(int i){
+	std::ostringstream s;
+	Eigen::Matrix4f pose = results[i]->getPosition();
+	s << results[i]->getModel();
+	s << " " << pose(0,0);
+	s << " " << pose(1,0);
+	s << " " << pose(2,0);
+	s << " " << pose(0,1);
+	s << " " << pose(1,1);
+	s << " " << pose(2,1);
+	s << " " << pose(0,2);
+	s << " " << pose(1,2);
+	s << " " << pose(2,2);
+	s << " " << pose(0,3);
+	s << " " << pose(1,3);
+	s << " " << pose(2,3);
+	s << " " << dir(0);
+	s << " " << dir(1);
+	s << " " << dir(2);
+	s << " " << pointGlowVectorToString(selectedpts,pose);
+	std::cout << s.str().substr(0,(s.str().length()>800?800:s.str().length())) <<" [...]"<< std::endl;
+	//std::vector<glow::vec4> v = pointStringToGlowVector(s ,results[selectedcar]->getPosition());
+	return s.str();
 }

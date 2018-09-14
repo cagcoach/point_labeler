@@ -3,16 +3,22 @@
 
 #include <QDialog>
 #include "AutoAuto.h"
+#include <QListWidget> 
+#include <QDialogButtonBox> 
+#include <QVBoxLayout> 
 
 class CarDialog : public QDialog
 {
 	Q_OBJECT
 
 public:
-	CarDialog(std::shared_ptr<AutoAuto> a);
+	CarDialog(std::shared_ptr<AutoAuto> a, QWidget* parent = 0);
+	~CarDialog();
 
 signals:
 	void changeCar(std::shared_ptr<AutoAuto>, int);
+	void saveCar(std::shared_ptr<AutoAuto>);
+	void windowClosed();
 private slots:
 	void save();
 	void discard();
@@ -21,7 +27,9 @@ private:
 	QListWidget *carList;
 	QDialogButtonBox *buttonBox;
 	std::shared_ptr<AutoAuto> a;
-	filllist();
-}
+	QVBoxLayout *mainLayout;
+	void filllist();
+	void closeEvent(QCloseEvent *event);
+};
 
 #endif
