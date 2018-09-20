@@ -888,9 +888,27 @@ void Mainframe::keyPressEvent(QKeyEvent* event) {
     case Qt::Key_2:
       changeMode(Viewport::POLYGON, true);
       return;
+
     case Qt::Key_R:
       ui.chkRemoveGround->toggle();
       return;
+
+    case Qt::Key_T:
+      ui.chkPlaneRemovalNormal->toggle();
+      return;
+
+    case Qt::Key_G:
+      ui.chkPlaneRemovalNormal_extra->toggle();
+      return;
+
+    case Qt::Key_P:
+      ui.mViewportXYZ->setCameraProjection(Viewport::CameraProjection::perspective);
+      return;
+
+    case Qt::Key_L:
+      ui.mViewportXYZ->setCameraProjection(Viewport::CameraProjection::orthographic);
+      return;
+
     default:
       if (!ui.mViewportXYZ->hasFocus()) ui.mViewportXYZ->keyPressEvent(event);
       return;
