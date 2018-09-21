@@ -23,7 +23,7 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 using namespace std;
 
 Icp::Icp (const double *M,const int32_t M_num,const int32_t dim, const float min_delta) :
-  dim(dim), max_iter(300), min_delta(min_delta) {
+  dim(dim), max_iter(100), min_delta(min_delta) {
   
   // check for correct dimensionality
   if (dim!=2 && dim!=3) {
@@ -109,20 +109,24 @@ uint32_t Icp::getInlierSize (const double *T,const int32_t T_num,Matrix &R,Matri
   return a.size();
 }
 
+
+float Icp::getSqDistance (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist){
+  return getInliersSqDistance(T,T_num,R,t,indist);
+}
 void Icp::fitIterate(double *T,const int32_t T_num,Matrix &R,Matrix &t,const std::vector<int32_t> &active) {
   
   // check if we have at least 5 active points
-  std::cout<<"Active "<<active.size()<<std::endl;
+  //std::cout<<"Active "<<active.size()<<std::endl;
   if (active.size()<5)
     return;
   
   // iterate until convergence
   double delta;
+  int cnt = 0;
   for (int32_t iter=0; iter<max_iter; iter++){
-    std::cout<<"."<<std::flush;
     delta=fitStep(T,T_num,R,t,active);
       if (delta<min_delta)
         break;
   }
-  std::cout<<"Delta "<<delta<<std::endl;
+  //std::cout<<"Delta "<<delta<<std::endl;
 }

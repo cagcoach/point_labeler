@@ -101,13 +101,15 @@ double IcpPointToPoint::fitStep (double *T,const int32_t T_num,Matrix &R,Matrix 
     double mut0 = 0.0, mut1 = 0.0, mut2 = 0.0;
 
     // establish correspondences
-#pragma omp parallel for private(i) default(none) shared(T,active,nact,p_m,p_t,r00,r01,r02,r10,r11,r12,r20,r21,r22,t0,t1,t2) reduction(+:mum0,mum1,mum2, mut0,mut1,mut2) // schedule (dynamic,2)
+//#pragma omp parallel for private(i) default(none) shared(T,active,nact,p_m,p_t,r00,r01,r02,r10,r11,r12,r20,r21,r22,t0,t1,t2) reduction(+:mum0,mum1,mum2, mut0,mut1,mut2) // schedule (dynamic,2)
+    // kd tree query + result
+    std::vector<float>         query(dim);
+    kdtree::KDTreeResultVector result;
+
     for (i=0; i<nact; i++) {
       //p.push([&, i](int){
 
-      // kd tree query + result
-      std::vector<float>         query(dim);
-      kdtree::KDTreeResultVector result;
+      
 
       // get index of active point
       //int32_t idx = active[i];
@@ -239,3 +241,65 @@ std::vector<int32_t> IcpPointToPoint::getInliers (const double *T,const int32_t 
   // return vector with inliers
   return inliers;
 }
+
+
+float IcpPointToPoint::getInliersSqDistance (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist) {
+
+  // init inlier vector + query point + query result
+  float            inliers=0;
+  std::vector<float>         query(dim);
+  kdtree::KDTreeResultVector neighbor;
+  
+  // dimensionality 2
+  if (dim==2) {
+  
+    // extract matrix and translation vector
+    double r00 = R.val[0][0]; double r01 = R.val[0][1];
+    double r10 = R.val[1][0]; double r11 = R.val[1][1];
+    double t0  = t.val[0][0]; double t1  = t.val[1][0];
+
+    // check for all points if they are inliers
+    for (int32_t i=0; i<T_num; i++) {
+
+      // transform point according to R|t
+      query[0] = (float)(r00*T[i*2+0] + r01*T[i*2+1] + t0);
+      query[1] = (float)(r10*T[i*2+0] + r11*T[i*2+1] + t1);
+
+      // search nearest neighbor
+      M_tree->n_nearest(query,1,neighbor);
+
+      // check if it is an inlier
+      //if (neighbor[0].dis<indist)
+        inliers+=neighbor[0].dis;
+    }
+    
+  // dimensionality 3
+  } else {
+    
+    // extract matrix and translation vector
+    double r00 = R.val[0][0]; double r01 = R.val[0][1]; double r02 = R.val[0][2];
+    double r10 = R.val[1][0]; double r11 = R.val[1][1]; double r12 = R.val[1][2];
+    double r20 = R.val[2][0]; double r21 = R.val[2][1]; double r22 = R.val[2][2];
+    double t0  = t.val[0][0]; double t1  = t.val[1][0]; double t2  = t.val[2][0];
+
+    // check for all points if they are inliers
+    for (int32_t i=0; i<T_num; i++) {
+
+      // transform point according to R|t
+      query[0] = (float)(r00*T[i*3+0] + r01*T[i*3+1] + r02*T[i*3+2] + t0);
+      query[1] = (float)(r10*T[i*3+0] + r11*T[i*3+1] + r12*T[i*3+2] + t1);
+      query[2] = (float)(r20*T[i*3+0] + r21*T[i*3+1] + r22*T[i*3+2] + t2);
+
+      // search nearest neighbor
+      M_tree->n_nearest(query,1,neighbor);
+
+      // check if it is an inlier
+      //if (neighbor[0].dis<indist)
+        inliers+=neighbor[0].dis;
+    }
+  }
+  
+  // return vector with inliers
+  return inliers;
+}
+

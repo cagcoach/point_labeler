@@ -22,8 +22,8 @@ public:
   Eigen::Matrix4f getPosition() const;
   std::string getModel() const;
   std::shared_ptr<std::vector<glow::vec4>> getPoints() const;
-  void setInlier(uint32_t i);
-  uint32_t getInlier() const;
+  void setInlier(float i);
+  float getInlier() const;
   std::shared_ptr<std::vector<glow::vec4>> getGlobalPoints() const; 
 
 
@@ -31,7 +31,7 @@ protected:
   std::string model;
   std::shared_ptr<std::vector<glow::vec4>> points {nullptr};
   Eigen::Matrix4f position;
-  uint32_t inlier {0};
+  float inlier {0};
 
 };
 

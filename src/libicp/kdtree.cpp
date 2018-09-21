@@ -343,12 +343,11 @@ namespace kdtree {
     // constructor
     
   public:
-    SearchRecord(std::vector<float>& qv_in, KDTree& tree_in,
-            KDTreeResultVector& result_in) :
+    SearchRecord(std::vector<float>& qv_in, KDTree& tree_in, KDTreeResultVector& result_in) :
               qv(qv_in),
-                      result(result_in),
-                      data(tree_in.data),
-                      ind(tree_in.ind) {
+              result(result_in),
+              data(tree_in.data),
+              ind(tree_in.ind) {
                 dim = tree_in.dim;
                 rearrange = tree_in.rearrange;
                 ballsize = infinity;
@@ -359,7 +358,8 @@ namespace kdtree {
   
   void KDTree::n_nearest_brute_force(std::vector<float>& qv, int nn, KDTreeResultVector& result) {
     
-    result.clear();
+    result.resize(N);
+    auto it = result.begin();
     
     for (int i=0; i<N; i++) {
       float dis = 0.0;
@@ -369,7 +369,8 @@ namespace kdtree {
       }
       e.dis = dis;
       e.idx = i;
-      result.push_back(e);
+      *it=e;
+      it++;
     }
     sort(result.begin(), result.end() );
   }

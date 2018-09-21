@@ -50,11 +50,13 @@ namespace ctpl {
     public:
 
         thread_pool() : q(_ctplThreadPoolLength_) { this->init(); }
-        thread_pool(int nThreads, int queueSize = _ctplThreadPoolLength_) : q(queueSize) { this->init(); this->resize(nThreads); }
+        thread_pool(int nThreads_, int queueSize = _ctplThreadPoolLength_) : q(queueSize), nThreads(nThreads_) { this->init(); this->resize(nThreads); }
 
         // the destructor waits for all the functions in the queue to be finished
         ~thread_pool() {
             this->stop(true);
+            
+
         }
 
         // get the number of running threads in the pool
@@ -181,6 +183,8 @@ namespace ctpl {
 
             return pck->get_future();
         }
+        void reinit() {  this->init(); this->resize(nThreads);  }
+
 
 
     private:
@@ -223,6 +227,7 @@ namespace ctpl {
 
         void init() { this->nWaiting = 0; this->isStop = false; this->isDone = false; }
 
+        int nThreads = 0;
         std::vector<std::unique_ptr<std::thread>> threads;
         std::vector<std::shared_ptr<std::atomic<bool>>> flags;
         mutable boost::lockfree::queue<std::function<void(int id)> *> q;

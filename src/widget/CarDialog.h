@@ -18,10 +18,12 @@ public:
 signals:
 	void changeCar(std::shared_ptr<AutoAuto>, int);
 	void saveCar(std::shared_ptr<AutoAuto>);
+	void continueCar(std::shared_ptr<AutoAuto>);
 	void windowClosed();
 private slots:
 	void save();
 	void discard();
+	void continue_();
 	void selectionChanged();
 private:
 	QListWidget *carList;

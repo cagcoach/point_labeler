@@ -26,9 +26,9 @@ std::shared_ptr<std::vector<glow::vec4>> Car::getGlobalPoints() const {
     }
     return gp;
 }
-void Car::setInlier(uint32_t i) {
+void Car::setInlier(float i) {
 	inlier=i;
 }
-uint32_t Car::getInlier() const{
+float Car::getInlier() const{
 	return inlier;
 }

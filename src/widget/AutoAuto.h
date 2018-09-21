@@ -7,18 +7,20 @@
 #include <QObject> 
 #include <mutex>
 
-#define NUM_THREADS 8
+//#define NUM_THREADS 6
 
 class AutoAuto : public QObject{
   Q_OBJECT
   public:
-    AutoAuto(const std::shared_ptr<std::map<std::string, Car>> cars_):cars(cars_) {};
+    AutoAuto(const std::vector<std::shared_ptr<std::map<std::string, Car>>> cars_);
     AutoAuto(const std::shared_ptr<std::map<std::string, Car>> cars_, std::string config);
 
     ~AutoAuto();
     static std::shared_ptr<std::map<std::string, Car>> loadCarModels(const std::string& path);
     std::shared_ptr<Car> icpMatch(Car inpc, const std::shared_ptr<std::vector<double>> worldpts_, const FLOAT* r,  const FLOAT* t);
-    void matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Vector4f dir);
+    void matchPosition(){matchPosition(selectedpts,dir,last_step+1);};
+    void matchPosition(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f dir_){matchPosition(pts_,dir_,last_step+1);};
+    void matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Vector4f dir, const int step);
   	std::vector<std::shared_ptr<Car>> getResults();
   	std::string getString();
   	std::string getString(int i);
@@ -40,17 +42,19 @@ class AutoAuto : public QObject{
 
   	std::mutex resultsMutex;
   	std::mutex manageResultsMutex;
-    const std::shared_ptr<std::map<std::string, Car>> cars;
+    std::vector<std::shared_ptr<std::map<std::string, Car>>> cars;
 
     //TODO Add const
     Eigen::Vector4f dir;
     //TODO Add const
     std::vector<glow::vec4> selectedpts;
-
-  	ctpl::thread_pool pool{NUM_THREADS};
-  	std::vector<std::shared_ptr<Car>> results;
-  	int selectedcar=0;
-
+    unsigned int NUM_THREADS{std::thread::hardware_concurrency()};
+    ctpl::thread_pool pool{NUM_THREADS};
+    std::vector<std::shared_ptr<Car>> results;
+    int last_step = -1;
+    int wanted_result_size = 0;
+    int selectedcar=0;
+    double duration=0;
 };
 
 #endif

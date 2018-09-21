@@ -141,6 +141,7 @@ class Viewport : public QGLWidget {
   void tempAutoAuto(std::shared_ptr<AutoAuto>, int);
   void addAutoAutoToWorld(std::shared_ptr<AutoAuto>);
   void updateAutoAuto();
+  void continueAutoAuto(std::shared_ptr<AutoAuto> a);
 
  protected:
   bool initContext() {
@@ -295,6 +296,8 @@ class Viewport : public QGLWidget {
   //AutoAuto autoAuto{"../cars"};
   std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> autoautos;
   std::shared_ptr<std::map<std::string, Car>> cars_;
+  std::shared_ptr<std::map<std::string, Car>> first_cars_;
+  std::shared_ptr<std::map<std::string, Car>> more_cars_;
   std::map<std::shared_ptr<AutoAuto>, std::vector<glow::vec4>> carsInWorld_;
   std::vector<glow::vec2> polygonPoints_;
   std::vector<glow::vec4> carPoints_;

@@ -41,6 +41,7 @@ private:
   //ctpl::thread_pool p{NUMTHREADS};
   double fitStep (double *T,const int32_t T_num,Matrix &R,Matrix &t,const std::vector<int32_t> &active);
   std::vector<int32_t> getInliers (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist);
+  float getInliersSqDistance (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist);
 };
 
 

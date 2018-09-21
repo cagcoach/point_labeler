@@ -6,11 +6,15 @@ CarDialog::CarDialog(std::shared_ptr<AutoAuto> a_, QWidget* parent) : a(a_),QDia
 	
 	carList = new QListWidget(this);
 
+
 	buttonBox = new QDialogButtonBox(QDialogButtonBox::Save
                                      | QDialogButtonBox::Cancel);
 
+	buttonBox->addButton("&more",QDialogButtonBox::HelpRole);
+
     connect(buttonBox, SIGNAL(accepted()), this, SLOT(save()));
     connect(buttonBox, SIGNAL(rejected()), this, SLOT(discard()));
+    connect(buttonBox, SIGNAL(helpRequested()), this, SLOT(continue_()));
     connect(carList, SIGNAL(itemSelectionChanged()), this, SLOT(selectionChanged()));
 
     mainLayout = new QVBoxLayout;
@@ -40,11 +44,16 @@ void CarDialog::filllist(){
 void CarDialog::save(){
 	a->setSelectedCar(carList->currentRow());
 	emit saveCar(a);
-	a->getString();
+	//a->getString();
 	close();
 }
 
 void CarDialog::discard(){
+	close();
+}
+
+void CarDialog::continue_(){
+	emit continueCar(a);
 	close();
 }
 void CarDialog::selectionChanged(){

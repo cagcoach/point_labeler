@@ -19,6 +19,7 @@
 
 #include <QApplication>
 #include <QEventLoop>
+#include <bits/stdc++.h> 
 
 
 using namespace glow;
@@ -192,7 +193,11 @@ void Viewport::initPrograms() {
   prgSelectPoly_.attach(tfSelectPoly_);
   prgSelectPoly_.link();
 
-  cars_ = AutoAuto::loadCarModels("../cars");
+  first_cars_ = AutoAuto::loadCarModels("../cars");
+  more_cars_ = AutoAuto::loadCarModels("../cars/more");
+  cars_ = std::make_shared<std::map<std::string, Car>>();
+  cars_->insert(first_cars_->begin(),first_cars_->end());
+  cars_->insert(more_cars_->begin(),more_cars_->end());
   autoautos = std::make_shared<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>>();
 
   glow::_CheckGlError(__FILE__, __LINE__);
@@ -1572,8 +1577,8 @@ void Viewport::selectPolygon(std::vector<glow::vec4>& inpoints) {
 }
 
 void Viewport::applyAutoAuto() {
-  
-  auto a = std::make_shared<AutoAuto>(cars_);
+  std::vector<std::shared_ptr<std::map<std::string, Car>>> vect{first_cars_, more_cars_};
+  auto a = std::make_shared<AutoAuto>(vect);
   (*autoautos)[a.get()] = a; //take a normal pointer as ID for the shared_ptr
 
   //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
@@ -1629,8 +1634,13 @@ void Viewport::afterAutoAuto(AutoAuto* a_) {
   connect(cardialog, SIGNAL(changeCar(std::shared_ptr<AutoAuto>, int)),this, SLOT(tempAutoAuto(std::shared_ptr<AutoAuto>, int)));
   connect(cardialog, SIGNAL(saveCar(std::shared_ptr<AutoAuto>)),this, SLOT(addAutoAutoToWorld(std::shared_ptr<AutoAuto>)));
   connect(cardialog, SIGNAL(windowClosed()),this, SLOT(updateAutoAuto()));
+  connect(cardialog, SIGNAL(continueCar(std::shared_ptr<AutoAuto>)),this,SLOT(continueAutoAuto(std::shared_ptr<AutoAuto>)));
 
   cardialog->show();
+}
+
+void Viewport::continueAutoAuto(std::shared_ptr<AutoAuto> a){
+  a->matchPosition();
 }
 
 void Viewport::tempAutoAuto(std::shared_ptr<AutoAuto> a, int id){

@@ -11,19 +11,25 @@
 #include <climits>
 #include "base64.h"
 #include <string>
-
+#include <ctime>
+#include <random>
 
 
 
 using namespace glow;
 
-AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, Car>> cars_, std::string config):cars(cars_) {
+AutoAuto::AutoAuto(const std::vector<std::shared_ptr<std::map<std::string, Car>>> cars_):cars(cars_){
+  connect(this, SIGNAL(carFinished()),this,SLOT(manageResults()));
+
+}
+
+AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, Car>> cars_, std::string config){
 	std::cout<<config<<std::endl;
 	Eigen::Matrix4f pose_;
 	Eigen::Vector4f dir_;
 	std::string ps;
 	std::string model;
-
+  cars.push_back(cars_);
 	std::istringstream config_stream(config);
 	config_stream >>
 		model >>
@@ -49,11 +55,17 @@ AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, Car>> cars_, std:
 	pose_(3,3) = 1;
 	selectedpts = pointStringToGlowVector(ps, pose_);
 	dir = dir_;
-	auto c = std::make_shared<Car>(cars->find(model)->second);
+  auto carmodel=cars[0]->find(model);
+  if (carmodel == cars[0]->end()){
+    throw "Car not in list";
+  }
+	auto c = std::make_shared<Car>(carmodel->second);
 	c->setPosition(pose_);
 	results.push_back(c);
-
+  wanted_result_size =1;
 	std::cout<<ps<<std::endl;
+  connect(this, SIGNAL(carFinished()),this,SLOT(manageResults()));
+
 }
 
 
@@ -135,17 +147,53 @@ std::shared_ptr<Car> AutoAuto::icpMatch(Car inpc, const std::shared_ptr<std::vec
       car_.push_back(mincar.z());
     }
   }
+  //std::random_shuffle ( car_.begin(), car_.end() );
 
+  std::random_device rd; // obtain a random number from hardware
+  std::mt19937 eng(rd()); // seed the generator
+
+  auto n = (car_.end()-car_.begin());
+  for (auto i=(n/3)-1; i>0; --i) {
+    std::uniform_int_distribution<> distr(0, i+1); // define the range
+    int g = distr(eng);
+    iter_swap (car_.begin()+i*3,car_.begin()+g*3);
+    iter_swap (car_.begin()+i*3+1,car_.begin()+g*3+1);
+    iter_swap (car_.begin()+i*3+2,car_.begin()+g*3+2);
+  }
   //std::cout<<car_.size()<<std::endl;
 
 
   Matrix r_(3,3,r);
   Matrix t_(3,1,t);
 
-  //std::cout<<"ICP"<<std::endl;
+  std::clock_t start;
+  
 
-  IcpPointToPoint icp(worldpts_->data(),worldpts_->size()/3,3);
+  start = std::clock();
+
+  //std::cout<<"ICP"<<std::endl;
+  IcpPointToPoint icp(worldpts_->data(),worldpts_->size()/3,3,(float)1e-3);
+  //icp.max_iter=200;
+  //icp.fit(car_.data(),car_.size()/24,r_,t_,-1);
+
+  /*icp.max_iter=50;
+  icp.fit(car_.data(),car_.size()/12,r_,t_,-1);
+
+  icp.max_iter=50;
+  icp.min_delta=1e-4;
+  icp.fit(car_.data(),car_.size()/6,r_,t_,-1);
+  */
+  icp.max_iter=300;
+  //icp.min_delta=1e-5;
+  icp.fit(car_.data(),car_.size()/24,r_,t_,-1);
+  icp.max_iter=300;
+  icp.min_delta=1e-5;
   icp.fit(car_.data(),car_.size()/3,r_,t_,-1);
+
+  double duration_ = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+
+  std::cout<<"[duration: "<< duration_ <<"]"<<'\n';
+  duration+=duration_;
 
   FLOAT r2[9];
   FLOAT t2[3];
@@ -161,7 +209,8 @@ std::shared_ptr<Car> AutoAuto::icpMatch(Car inpc, const std::shared_ptr<std::vec
   //std::cout<<"reverse matching"<<std::endl;
 
   IcpPointToPoint icp2(car_.data(),car_.size()/3,3,(float)1e10); //set min delta to "very high"
-  uint32_t inlier=icp2.getInlierSize(worldpts_->data(),worldpts_->size()/3,r_2,t_2,0.1);
+  float inlier=icp2.getSqDistance(worldpts_->data(),worldpts_->size()/3,r_2,t_2,0.3);
+  inlier+=icp.getSqDistance(car_.data(),car_.size()/3,r_,t_,-1);
   Eigen::Matrix4f newrotmat;
   newrotmat <<
     r2[0], r2[1],r2[2], t2[0],
@@ -187,9 +236,16 @@ std::shared_ptr<Car> AutoAuto::icpMatch(Car inpc, const std::shared_ptr<std::vec
   return c;
 }
 
-void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Vector4f dir_){
+void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Vector4f dir_, int step){
    //calculate box size
   //pool.stop(true);
+  last_step = step;
+  if (cars.size()<=step){
+    emit carFinished();
+    emit carProgressFinished(this);
+    return;
+  }
+  wanted_result_size += cars[step]->size();
   selectedpts = pts;
   dir = dir_;
   emit carProgressUpdate(0);
@@ -257,6 +313,8 @@ void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Ve
 
   //Convert Format 
   auto pts_ = std::make_shared<std::vector<double>>();
+  std::random_shuffle ( pts_->begin(), pts_->end() );
+  
   for(auto const& value: pts) {
     pts_->push_back(value.x);
     pts_->push_back(value.y);
@@ -277,8 +335,8 @@ void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Ve
   //MAIN LOOP
   //uint32_t carprogress=0;
   //AutoAuto* this_ = this;
-  connect(this, SIGNAL(carFinished()),this,SLOT(manageResults()));
-  for (auto const& x : *cars) {
+  pool.reinit();
+  for (auto const& x : *(cars[step])) {
     pool.push([x, pts_, r, t, this](int){
     	auto rslt = icpMatch(x.second, pts_, r, t);
     	addResult(rslt);
@@ -286,17 +344,18 @@ void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Ve
     	qDebug()<<"Car finished";
     });
   }
-
 }
 
 void AutoAuto::manageResults(){
+  int ressize = results.size();
 	//results.push_back(car);
 	manageResultsMutex.lock();
 	//std::cout<<"RESULT "<<results.size()<<"/"<<cars->size()<<std::endl;
-	emit carProgressUpdate((float)results.size()/cars->size());
-	if (results.size()==cars->size()){
+	emit carProgressUpdate((float)ressize/wanted_result_size);
+	if (ressize==wanted_result_size){
+    std::cout<<"Total: "<<duration<<" seconds"<<std::endl;
 	  auto cmp = [](std::shared_ptr<Car> const & a, std::shared_ptr<Car> const & b) { 
-	    return a->getInlier() > b->getInlier();
+	    return a->getInlier() < b->getInlier();
 	  };
 
 	  std::sort(results.begin(),results.end(),cmp);

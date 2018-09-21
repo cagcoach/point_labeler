@@ -31,8 +31,14 @@ void AutoAutoReader::load(){
 	std::ifstream infile(autoauto_dir.c_str());
 	for( std::string line; getline( infile, line ); )
 	{
-	    auto autoautoptr = std::make_shared<AutoAuto>(cars, line);
-	    (*autoautos)[autoautoptr.get()] = (autoautoptr);
+	    try{
+	    	auto autoautoptr = std::make_shared<AutoAuto>(cars, line);
+	    	(*autoautos)[autoautoptr.get()] = (autoautoptr);
+		} catch (const char* msg) {
+			std::cout << msg << std::endl;
+			continue;
+		}
+	    
 	    // process pair (a,b)
 	}
 	infile.close();
