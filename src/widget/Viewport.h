@@ -109,12 +109,13 @@ class Viewport : public QGLWidget {
 
   void setCameraProjection(const CameraProjection& proj);
   std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> getAutoAutos();
-  std::shared_ptr<std::map<std::string, Car>> getCars();
+  std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> getCars();
   
 
 
  signals:
   void labelingChanged();
+  void scanChanged();
 
  public slots:
   /** \brief set axis fixed **/
@@ -142,6 +143,7 @@ class Viewport : public QGLWidget {
   void addAutoAutoToWorld(std::shared_ptr<AutoAuto>);
   void updateAutoAuto();
   void continueAutoAuto(std::shared_ptr<AutoAuto> a);
+
 
  protected:
   bool initContext() {
@@ -186,7 +188,9 @@ class Viewport : public QGLWidget {
   //  void drawPoints(const std::vector<Point3f>& points, const std::vector<uint32_t>& labels);
   void labelPoints(int32_t x, int32_t y, float radius, uint32_t label, bool remove);
   void selectPolygon(std::vector<glow::vec4>& inpoints);
+  void selectBox(std::vector<glow::vec4>& outpoints, const Eigen::Matrix4f& centerpose, const Eigen::Vector4f& corner);
   void applyAutoAuto();
+  void follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f dir_, const Eigen::Vector4f center_);
 
   bool contextInitialized_;
   std::map<uint32_t, glow::GlColor> mLabelColors;
@@ -237,6 +241,8 @@ class Viewport : public QGLWidget {
   glow::GlTransformFeedback tfSelectPoly_;
   glow::GlBuffer<uint32_t> bufSelectedPoly_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
 
+  glow::GlTransformFeedback tfSelectBox_;
+  glow::GlBuffer<uint32_t> bufSelectedBox_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
 
   glow::GlTransformFeedback tfUpdateVisibility_;
   glow::GlBuffer<uint32_t> bufUpdatedVisiblity_{glow::BufferTarget::ARRAY_BUFFER, glow::BufferUsage::DYNAMIC_DRAW};
@@ -272,6 +278,8 @@ class Viewport : public QGLWidget {
   glow::GlProgram prgAverageHeightMap_;
 
   glow::GlProgram prgSelectPoly_;
+  glow::GlProgram prgSelectBox_;
+
 
   int32_t pointSize_{1};
 
@@ -295,9 +303,9 @@ class Viewport : public QGLWidget {
 
   //AutoAuto autoAuto{"../cars"};
   std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> autoautos;
-  std::shared_ptr<std::map<std::string, Car>> cars_;
-  std::shared_ptr<std::map<std::string, Car>> first_cars_;
-  std::shared_ptr<std::map<std::string, Car>> more_cars_;
+  std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> cars_;
+  std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> first_cars_;
+  std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> more_cars_;
   std::map<std::shared_ptr<AutoAuto>, std::vector<glow::vec4>> carsInWorld_;
   std::vector<glow::vec2> polygonPoints_;
   std::vector<glow::vec4> carPoints_;

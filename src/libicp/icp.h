@@ -60,6 +60,7 @@ public:
   void fit(double *T,const int32_t T_num,Matrix &R,Matrix &t,const double indist);
   uint32_t getInlierSize(const double *T,const int32_t T_num,Matrix &R,Matrix &t,const double indist);
   float getSqDistance (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist);
+  std::vector<bool> getInDistance (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist);
   int32_t max_iter;  // max number of iterations
   double  min_delta; // min parameter delta
 
@@ -73,7 +74,7 @@ private:
   virtual double               fitStep(double *T,const int32_t T_num,Matrix &R,Matrix &t,const std::vector<int32_t> &active) = 0;
   virtual std::vector<int32_t> getInliers(const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist) = 0;
   virtual float getInliersSqDistance (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist) = 0;
-
+  virtual std::vector<bool> getWorldPtsInDistance (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist) = 0; 
 protected:
   
   // kd tree of model points

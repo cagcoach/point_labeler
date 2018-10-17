@@ -8,7 +8,7 @@ AutoAutoReader::AutoAutoReader(){
 
 }
 
-void AutoAutoReader::initialize(const QString& directory, std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> autoautos_, std::shared_ptr<std::map<std::string, Car>> cars_){
+void AutoAutoReader::initialize(const QString& directory, std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> autoautos_, std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> cars_){
 	QDir base_dir(directory);
 	autoauto_dir = base_dir.filePath("autoautos.txt").toStdString();
 	autoauto_dir_tmp = base_dir.filePath("autoautos.txt.tmp").toStdString();
@@ -20,6 +20,9 @@ void AutoAutoReader::save(){
 	std::ofstream myfile;
 	
 	myfile.open (autoauto_dir_tmp.c_str());
+	for(auto const& l:unknown){
+		myfile << l << "\n";
+	}
 	for(auto const& a:(*autoautos)){
 		myfile << a.second->getString() << "\n";
 	}
@@ -36,11 +39,10 @@ void AutoAutoReader::load(){
 	    	(*autoautos)[autoautoptr.get()] = (autoautoptr);
 		} catch (const char* msg) {
 			std::cout << msg << std::endl;
+			unknown.push_back(line);
 			continue;
 		}
-	    
 	    // process pair (a,b)
 	}
 	infile.close();
-
 }

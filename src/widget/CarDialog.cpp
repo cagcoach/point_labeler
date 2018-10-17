@@ -2,7 +2,7 @@
 
 #include "CarDialog.h"
 
-CarDialog::CarDialog(std::shared_ptr<AutoAuto> a_, QWidget* parent) : a(a_),QDialog(parent){
+CarDialog::CarDialog(std::shared_ptr<AutoAuto> a_, QWidget* parent,bool more) : a(a_),QDialog(parent){
 	
 	carList = new QListWidget(this);
 
@@ -10,7 +10,7 @@ CarDialog::CarDialog(std::shared_ptr<AutoAuto> a_, QWidget* parent) : a(a_),QDia
 	buttonBox = new QDialogButtonBox(QDialogButtonBox::Save
                                      | QDialogButtonBox::Cancel);
 
-	buttonBox->addButton("&more",QDialogButtonBox::HelpRole);
+	if(more)buttonBox->addButton("&more",QDialogButtonBox::HelpRole);
 
     connect(buttonBox, SIGNAL(accepted()), this, SLOT(save()));
     connect(buttonBox, SIGNAL(rejected()), this, SLOT(discard()));
@@ -45,11 +45,15 @@ void CarDialog::save(){
 	a->setSelectedCar(carList->currentRow());
 	emit saveCar(a);
 	//a->getString();
+	disconn();
 	close();
+	this->deleteLater();
 }
 
 void CarDialog::discard(){
+	disconn();
 	close();
+	this->deleteLater();
 }
 
 void CarDialog::continue_(){
@@ -57,10 +61,19 @@ void CarDialog::continue_(){
 	close();
 }
 void CarDialog::selectionChanged(){
-	std::cout<<carList->currentRow()<<std::endl;
+	//std::cout<<carList->currentRow()<<std::endl;
 	emit changeCar(a,carList->currentRow());
 }
 
 void CarDialog::closeEvent(QCloseEvent *event){
 	emit windowClosed();
+}
+
+void CarDialog::viewChanged(){
+	emit changeCar(a,carList->currentRow());
+}
+
+void CarDialog::disconn(){
+	disconnect(this, 0, 0, 0);
+	disconnect(this);
 }

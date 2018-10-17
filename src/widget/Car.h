@@ -5,34 +5,45 @@
 #include <Eigen/Dense>
 #include <memory>
 #include <glow/glutil.h>
+#include <map>
+
 
 class Car{
 public:
-  Car(std::string model_, std::shared_ptr<std::vector<glow::vec4>> points_) : 
-    model(model_),
-    points(points_),
-    position(Eigen::Matrix4f::Identity()) {};
-  Car(const Car& c):
-    model(c.getModel()),
-    points(c.getPoints()),
-    position(c.getPosition()),
-    inlier(c.getInlier()) {};
-  ~Car();
-  void setPosition(Eigen::Matrix4f position_);
-  Eigen::Matrix4f getPosition() const;
-  std::string getModel() const;
-  std::shared_ptr<std::vector<glow::vec4>> getPoints() const;
-  void setInlier(float i);
-  float getInlier() const;
-  std::shared_ptr<std::vector<glow::vec4>> getGlobalPoints() const; 
-
-
+  //Car(){model="";};
+  ~Car(){};
+  virtual void setPosition(Eigen::Matrix4f position_) = 0;
+  virtual void setPosition(std::map<int,Eigen::Matrix4f> position_) = 0;
+  virtual Eigen::Matrix4f getPosition() const = 0;
+  virtual Eigen::Matrix4f getPosition(int scan) const = 0;
+  virtual std::string getModel() const = 0;
+  virtual std::shared_ptr<std::vector<glow::vec4>> getPoints() const = 0;
+  virtual void setInlier(float i) = 0;
+  virtual float getInlier() const = 0;
+  virtual std::shared_ptr<std::vector<glow::vec4>> getGlobalPoints() const = 0;
+  virtual std::shared_ptr<std::vector<glow::vec4>> getGlobalPoints(int scan) const = 0; 
+  virtual void setScan(int scan){};
+  virtual void setOriginalPoints(std::shared_ptr<std::vector<glow::vec4>>) = 0;
+  virtual void setOriginalPoints(std::shared_ptr<std::vector<glow::vec4>>, int scan) = 0;
+  virtual void setOriginalPoints(std::map<int,std::shared_ptr<std::vector<glow::vec4>>>) = 0;
+  virtual std::shared_ptr<std::vector<glow::vec4>> getOriginalPoints() = 0;
+  virtual std::shared_ptr<std::vector<glow::vec4>> getOriginalPoints(int scan) = 0;
+  enum Type{STATIC_CAR = 0, MOVING_CAR = 1};
+  virtual Type getType() = 0;
+  virtual std::string getPointString()=0;
+  /*
+  static std::shared_ptr<Car> make_car(Type t){
+    switch(t){
+      case Car::MOVING_CAR:
+        return std::make_shared<MovingCar>();
+      case Car::STATIC_CAR:
+        return std::make_shared<StaticCar>();
+    }
+  }
+  */
 protected:
   std::string model;
-  std::shared_ptr<std::vector<glow::vec4>> points {nullptr};
-  Eigen::Matrix4f position;
-  float inlier {0};
-
 };
+
 
 #endif

@@ -227,10 +227,10 @@ namespace ctpl {
 
         void init() { this->nWaiting = 0; this->isStop = false; this->isDone = false; }
 
-        int nThreads = 0;
         std::vector<std::unique_ptr<std::thread>> threads;
         std::vector<std::shared_ptr<std::atomic<bool>>> flags;
         mutable boost::lockfree::queue<std::function<void(int id)> *> q;
+        int nThreads = 0;
         std::atomic<bool> isDone;
         std::atomic<bool> isStop;
         std::atomic<int> nWaiting;  // how many threads are waiting

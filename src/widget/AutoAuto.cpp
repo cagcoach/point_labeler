@@ -18,53 +18,74 @@
 
 using namespace glow;
 
-AutoAuto::AutoAuto(const std::vector<std::shared_ptr<std::map<std::string, Car>>> cars_):cars(cars_){
+AutoAuto::AutoAuto(const std::vector<std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>>> cars_):cars(cars_){
   connect(this, SIGNAL(carFinished()),this,SLOT(manageResults()));
 
 }
 
-AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, Car>> cars_, std::string config){
+AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> cars_, std::string config){
 	std::cout<<config<<std::endl;
 	Eigen::Matrix4f pose_;
 	Eigen::Vector4f dir_;
+  int type_;
 	std::string ps;
 	std::string model;
   cars.push_back(cars_);
-	std::istringstream config_stream(config);
-	config_stream >>
-		model >>
-		pose_(0,0) >>
-		pose_(1,0) >>
-		pose_(2,0) >>
-		pose_(0,1) >>
-		pose_(1,1) >>
-		pose_(2,1) >>
-		pose_(0,2) >>
-		pose_(1,2) >>
-		pose_(2,2) >>
-		pose_(0,3) >>
-		pose_(1,3) >>
-		pose_(2,3) >>
-		dir_(0) >>
-		dir_(1) >>
-		dir_(2) >>
-		ps;
-	pose_(3,0) = 0;
-	pose_(3,1) = 0;
-	pose_(3,2) = 0;
-	pose_(3,3) = 1;
-	selectedpts = pointStringToGlowVector(ps, pose_);
-	dir = dir_;
-  auto carmodel=cars[0]->find(model);
-  if (carmodel == cars[0]->end()){
-    throw "Car not in list";
+  std::istringstream config_stream(config);
+  config_stream >> type_;
+  switch(type_){
+    case Car::STATIC_CAR:{
+      config_stream >>
+        model >>
+        pose_(0,0) >>
+        pose_(1,0) >>
+        pose_(2,0) >>
+        pose_(0,1) >>
+        pose_(1,1) >>
+        pose_(2,1) >>
+        pose_(0,2) >>
+        pose_(1,2) >>
+        pose_(2,2) >>
+        pose_(0,3) >>
+        pose_(1,3) >>
+        pose_(2,3) >>
+        dir_(0) >>
+        dir_(1) >>
+        dir_(2) >>
+        ps;
+      pose_(3,0) = 0;
+      pose_(3,1) = 0;
+      pose_(3,2) = 0;
+      pose_(3,3) = 1;
+      *selectedpts = pointStringToGlowVector(ps, pose_);
+      auto type=(Car::Type)type_;
+      dir = dir_;
+      std::shared_ptr<Car> c;
+      try {
+        c = std::make_shared<StaticCar>(*(cars[0]->at(model)));
+      } catch (const std::out_of_range& oor) {
+          std::cerr << "Out of Range error: " << oor.what() << '\n';
+          std::string message= "Car not in list: " + model;
+          throw message.c_str();
+      }
+      c->setPosition(pose_);
+      c->setOriginalPoints(selectedpts);
+      results.push_back(c);
+      wanted_result_size =1;
+      std::cout<<ps<<std::endl;
+      connect(this, SIGNAL(carFinished()),this,SLOT(manageResults()));
+    }
+    break;
+    case Car::MOVING_CAR:{
+      std::cout<<"-- TODO --"<<std::endl;
+      throw "Not Implemented";
+    }
+    break;
+    default:
+      throw "No such Type";
   }
-	auto c = std::make_shared<Car>(carmodel->second);
-	c->setPosition(pose_);
-	results.push_back(c);
-  wanted_result_size =1;
-	std::cout<<ps<<std::endl;
-  connect(this, SIGNAL(carFinished()),this,SLOT(manageResults()));
+
+	
 
 }
 
@@ -73,7 +94,7 @@ AutoAuto::~AutoAuto(){
 
 }
 
-std::shared_ptr<std::map<std::string, Car>> AutoAuto::loadCarModels(const std::string& path){
+std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> AutoAuto::loadCarModels(const std::string& path){
   auto dirp = opendir(path.c_str()); //"../cars"
   if (dirp == NULL){
     std::cout << "Cars-Folder not found." <<std::endl;
@@ -81,7 +102,7 @@ std::shared_ptr<std::map<std::string, Car>> AutoAuto::loadCarModels(const std::s
   }
   
   struct dirent* dp;
-  auto loadedCars = std::make_shared<std::map<std::string, Car>>();
+  auto loadedCars = std::make_shared<std::map<std::string,  std::shared_ptr<Car>>>();
   while ((dp = readdir(dirp)) != NULL) {
     if (std::string(dp->d_name).length() < 4) continue; 
     if (0 != std::string(dp->d_name).compare (std::string(dp->d_name).length() - 4, 4, ".xyz")) continue; 
@@ -101,8 +122,8 @@ std::shared_ptr<std::map<std::string, Car>> AutoAuto::loadCarModels(const std::s
     	std::cout<<filepath<<": File corrupted or empty. SKIP"<<std::endl;
     	continue;
     }
-    
-    loadedCars->insert(std::pair<std::string, Car>(dp->d_name,Car(std::string(dp->d_name), v)));
+    std::shared_ptr<Car> sptr_c=  std::make_shared<StaticCar>(std::string(dp->d_name), v);
+    loadedCars->insert(std::pair<std::string, std::shared_ptr<Car>>(std::string(dp->d_name), sptr_c));
     //std::cout<<filepath<<": "<<v->size()<<" Points"<<std::endl;
 
   }
@@ -110,7 +131,7 @@ std::shared_ptr<std::map<std::string, Car>> AutoAuto::loadCarModels(const std::s
   return loadedCars;
 }
 
-std::shared_ptr<Car> AutoAuto::icpMatch(Car inpc, const std::shared_ptr<std::vector<double>> worldpts_, const FLOAT* r,  const FLOAT* t){
+std::shared_ptr<Car> AutoAuto::icpMatch(const Car& inpc, const std::shared_ptr<std::vector<double>> worldpts_, const FLOAT* r,  const FLOAT* t){
  
   std::shared_ptr<std::vector<glow::vec4>> carpts = inpc.getPoints();
   //std::cout<<inpc.getModel()<<": "<<carpts->size()<<" Car-Points"<<std::endl;
@@ -183,12 +204,12 @@ std::shared_ptr<Car> AutoAuto::icpMatch(Car inpc, const std::shared_ptr<std::vec
   icp.min_delta=1e-4;
   icp.fit(car_.data(),car_.size()/6,r_,t_,-1);
   */
-  icp.max_iter=300;
+  //icp.max_iter=300;
   //icp.min_delta=1e-5;
-  icp.fit(car_.data(),car_.size()/24,r_,t_,-1);
+  //icp.fit(car_.data(),car_.size()/24,r_,t_,0.1);
   icp.max_iter=300;
   icp.min_delta=1e-5;
-  icp.fit(car_.data(),car_.size()/3,r_,t_,-1);
+  icp.fit(car_.data(),car_.size()/3,r_,t_,0.1);
 
   double duration_ = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
 
@@ -229,18 +250,19 @@ std::shared_ptr<Car> AutoAuto::icpMatch(Car inpc, const std::shared_ptr<std::vec
   //std::cout<<inpc.getModel()<<": "<<cars_out[model].size()<<" Car-Points"<<std::endl;
   //progress->setValue(carprogress++);
 
-  std::shared_ptr<Car> c = std::make_shared<Car>(inpc);
+  std::shared_ptr<Car> c = std::make_shared<StaticCar>(inpc);
   c->setPosition(newrotmat);
   c->setInlier(inlier);
+  c->setOriginalPoints(selectedpts);
   //std::cout<<"matched"<<std::endl;
   return c;
 }
 
-void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Vector4f dir_, int step){
+void AutoAuto::matchPosition(const std::shared_ptr<std::vector<glow::vec4>> pts, const Eigen::Vector4f dir_, const Eigen::Vector4f center_, int step){
    //calculate box size
   //pool.stop(true);
   last_step = step;
-  if (cars.size()<=step){
+  if ((int)cars.size()<=step){
     emit carFinished();
     emit carProgressFinished(this);
     return;
@@ -249,35 +271,42 @@ void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Ve
   selectedpts = pts;
   dir = dir_;
   emit carProgressUpdate(0);
-  std::vector<float> xlist;
-  std::vector<float> ylist;
-  std::vector<float> zlist;
-
-  for(auto const& value: pts) {
-    xlist.push_back(value.x);
-    ylist.push_back(value.y);
-    zlist.push_back(value.z);
-  }
-  std::sort (xlist.begin(), xlist.end());
-  std::sort (ylist.begin(), ylist.end());
-  std::sort (zlist.begin(), zlist.end());
-
-
-  Eigen::Vector4f vec20; 
-  vec20 << 
-    xlist[floor(xlist.size()*0.2)],
-    ylist[floor(ylist.size()*0.2)],
-    zlist[floor(zlist.size()*0.2)],
-    1;
-  Eigen::Vector4f vec80;
-  vec80 << 
-    xlist[floor(xlist.size()*0.8)],
-    ylist[floor(ylist.size()*0.8)],
-    zlist[floor(zlist.size()*0.8)],
-    1;
   
-  Eigen::Vector4f carpos = vec20 + (0.5 * (vec80-vec20));
+  Eigen::Vector4f carpos;
+  if (center_==Eigen::Vector4f::Zero()){
 
+    std::vector<float> xlist;
+    std::vector<float> ylist;
+    std::vector<float> zlist;
+
+    for(auto const& value: *pts) {
+      xlist.push_back(value.x);
+      ylist.push_back(value.y);
+      zlist.push_back(value.z);
+    }
+    std::sort (xlist.begin(), xlist.end());
+    std::sort (ylist.begin(), ylist.end());
+    std::sort (zlist.begin(), zlist.end());
+
+
+    Eigen::Vector4f vec20; 
+    vec20 << 
+      xlist[floor(xlist.size()*0.2)],
+      ylist[floor(ylist.size()*0.2)],
+      zlist[floor(zlist.size()*0.2)],
+      1;
+    Eigen::Vector4f vec80;
+    vec80 << 
+      xlist[floor(xlist.size()*0.8)],
+      ylist[floor(ylist.size()*0.8)],
+      zlist[floor(zlist.size()*0.8)],
+      1;
+    
+    carpos = vec20 + (0.5 * (vec80-vec20));
+  }else{
+    carpos = center_;
+  }
+  center = center_;
   //compute car rotation matrix
   Eigen::Vector3f f; f<<dir.x(),dir.y(),dir.z();
   f=f.normalized();
@@ -315,7 +344,7 @@ void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Ve
   auto pts_ = std::make_shared<std::vector<double>>();
   std::random_shuffle ( pts_->begin(), pts_->end() );
   
-  for(auto const& value: pts) {
+  for(auto const& value: *pts) {
     pts_->push_back(value.x);
     pts_->push_back(value.y);
     pts_->push_back(value.z);
@@ -336,9 +365,9 @@ void AutoAuto::matchPosition(const std::vector<glow::vec4>& pts, const Eigen::Ve
   //uint32_t carprogress=0;
   //AutoAuto* this_ = this;
   pool.reinit();
-  for (auto const& x : *(cars[step])) {
+  for (auto const& x : *(cars.at(step))) {
     pool.push([x, pts_, r, t, this](int){
-    	auto rslt = icpMatch(x.second, pts_, r, t);
+    	auto rslt = icpMatch(*(x.second), pts_, r, t);
     	addResult(rslt);
     	carFinished();
     	qDebug()<<"Car finished";
@@ -380,6 +409,10 @@ void AutoAuto::addResult(std::shared_ptr<Car> result){
 void AutoAuto::setSelectedCar(int i){
 	selectedcar = i;
 }
+
+void AutoAuto::setSelectedpts(std::vector<glow::vec4> s){
+  *selectedpts = s;
+};
 
 int AutoAuto::getSelectedCar(){
 	return selectedcar;
@@ -431,25 +464,62 @@ std::string AutoAuto::getString(){
 
 std::string AutoAuto::getString(int i){
 	std::ostringstream s;
-	Eigen::Matrix4f pose = results[i]->getPosition();
-	s << results[i]->getModel();
-	s << " " << pose(0,0);
-	s << " " << pose(1,0);
-	s << " " << pose(2,0);
-	s << " " << pose(0,1);
-	s << " " << pose(1,1);
-	s << " " << pose(2,1);
-	s << " " << pose(0,2);
-	s << " " << pose(1,2);
-	s << " " << pose(2,2);
-	s << " " << pose(0,3);
-	s << " " << pose(1,3);
-	s << " " << pose(2,3);
-	s << " " << dir(0);
-	s << " " << dir(1);
-	s << " " << dir(2);
-	s << " " << pointGlowVectorToString(selectedpts,pose);
-	std::cout << s.str().substr(0,(s.str().length()>800?800:s.str().length())) <<" [...]"<< std::endl;
-	//std::vector<glow::vec4> v = pointStringToGlowVector(s ,results[selectedcar]->getPosition());
-	return s.str();
+  switch(results[i]->getType()){
+    case Car::STATIC_CAR:{
+      Eigen::Matrix4f pose = results[i]->getPosition();
+    	s << static_cast<int>(results[i]->getType());
+      s << " " << results[i]->getModel();
+    	s << " " << pose(0,0);
+    	s << " " << pose(1,0);
+    	s << " " << pose(2,0);
+    	s << " " << pose(0,1);
+    	s << " " << pose(1,1);
+    	s << " " << pose(2,1);
+    	s << " " << pose(0,2);
+    	s << " " << pose(1,2);
+    	s << " " << pose(2,2);
+    	s << " " << pose(0,3);
+    	s << " " << pose(1,3);
+    	s << " " << pose(2,3);
+    	s << " " << dir(0);
+    	s << " " << dir(1);
+    	s << " " << dir(2);
+    	s << " " << results[i]->getPointString();
+    	//std::cout << s.str().substr(0,(s.str().length()>800?800:s.str().length())) <<" [...]"<< std::endl;
+    	//std::vector<glow::vec4> v = pointStringToGlowVector(s ,results[selectedcar]->getPosition());
+    	return s.str();
+    }
+    case Car::MOVING_CAR:{
+      auto mcar = std::dynamic_pointer_cast<MovingCar>(results[i]);
+      s << static_cast<int>(results[i]->getType())<<" ";
+      bool first=true;
+      for (auto const& x : mcar->getPositions()){
+        if (!first){
+          s << ";";
+        }else{
+          first=false;
+        }
+        s << x.first;  // string (key)
+        Eigen::Matrix4f pose = x.second; // string's value 
+        s << ":" << pose(0,0);
+        s << "," << pose(1,0);
+        s << "," << pose(2,0);
+        s << "," << pose(0,1);
+        s << "," << pose(1,1);
+        s << "," << pose(2,1);
+        s << "," << pose(0,2);
+        s << "," << pose(1,2);
+        s << "," << pose(2,2);
+        s << "," << pose(0,3);
+        s << "," << pose(1,3);
+        s << "," << pose(2,3);
+      }
+      s << " " << dir(0);
+      s << " " << dir(1);
+      s << " " << dir(2);
+      s << " " << results[i]->getPointString();
+
+      return s.str();
+    }
+  }
 }

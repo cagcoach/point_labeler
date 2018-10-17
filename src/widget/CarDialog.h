@@ -12,7 +12,7 @@ class CarDialog : public QDialog
 	Q_OBJECT
 
 public:
-	CarDialog(std::shared_ptr<AutoAuto> a, QWidget* parent = 0);
+	CarDialog(std::shared_ptr<AutoAuto> a, QWidget* parent = 0, bool more=true);
 	~CarDialog();
 
 signals:
@@ -25,6 +25,8 @@ private slots:
 	void discard();
 	void continue_();
 	void selectionChanged();
+public slots:
+	void viewChanged();
 private:
 	QListWidget *carList;
 	QDialogButtonBox *buttonBox;
@@ -32,6 +34,7 @@ private:
 	QVBoxLayout *mainLayout;
 	void filllist();
 	void closeEvent(QCloseEvent *event);
+	void disconn();
 };
 
 #endif

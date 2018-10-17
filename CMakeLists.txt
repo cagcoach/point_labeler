@@ -72,6 +72,7 @@ COMPILE_SHADERS(${VIZ_SHADER_SRC}
   src/shaders/draw_heightmap.geom
   src/shaders/draw_heightmap.vert
   src/shaders/select_poly.vert
+  src/shaders/select_box.vert
   src/shaders/average_heightmap.frag
 )
 
@@ -99,11 +100,14 @@ add_executable(labeler
   src/widget/waitingspinnerwidget.cpp
   src/widget/ImageViewer.cpp
   src/widget/Car.h
+  src/widget/StaticCar.h
+  src/widget/MovingCar.h
   src/widget/AutoAuto.h
   src/widget/AutoAuto.cpp
   src/widget/AutoAutoReader.h
   src/widget/AutoAutoReader.cpp
-  src/widget/Car.cpp
+  src/widget/StaticCar.cpp
+  src/widget/MovingCar.cpp
   src/widget/CarDialog.h
   src/widget/CarDialog.cpp
   src/widget/base64.cpp

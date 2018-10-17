@@ -4,6 +4,9 @@
 #include "data/misc.h"
 #include "libicp/icpPointToPoint.h"
 #include "CarDialog.h"
+#include "Car.h"
+#include "MovingCar.h"
+#include "CarFactory.h"
 
 #include <glow/GlCapabilities.h>
 #include <glow/ScopedBinder.h>
@@ -15,12 +18,14 @@
 #include "rv/Stopwatch.h"
 
 #include <glow/GlState.h>
-#include <voro/voro++.hh>
+//#include <voro/voro++.hh>
 
 #include <QApplication>
 #include <QEventLoop>
 #include <bits/stdc++.h> 
+#include <math.h>       /* atan */
 
+#define PI 3.14159265
 
 using namespace glow;
 using namespace rv;
@@ -78,6 +83,10 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
 
   bufSelectedPoly_.resize(maxPointsPerScan_);
   tfSelectPoly_.attach({"out_inpoly"}, bufSelectedPoly_);
+
+  bufSelectedBox_.resize(maxPointsPerScan_);
+  tfSelectBox_.attach({"out_inbox"}, bufSelectedBox_);
+
 
   bufUpdatedVisiblity_.resize(maxPointsPerScan_);
   tfUpdateVisibility_.attach({"out_visible"}, bufUpdatedVisiblity_);
@@ -193,9 +202,15 @@ void Viewport::initPrograms() {
   prgSelectPoly_.attach(tfSelectPoly_);
   prgSelectPoly_.link();
 
+  prgSelectBox_.attach(GlShader::fromCache(ShaderType::VERTEX_SHADER, "shaders/select_box.vert"));
+  prgSelectBox_.attach(GlShader::fromCache(ShaderType::FRAGMENT_SHADER, "shaders/empty.frag"));
+  prgSelectBox_.attach(tfSelectBox_);
+  prgSelectBox_.link();
+
+
   first_cars_ = AutoAuto::loadCarModels("../cars");
   more_cars_ = AutoAuto::loadCarModels("../cars/more");
-  cars_ = std::make_shared<std::map<std::string, Car>>();
+  cars_ = std::make_shared<std::map<std::string, std::shared_ptr<Car>>>();
   cars_->insert(first_cars_->begin(),first_cars_->end());
   cars_->insert(more_cars_->begin(),more_cars_->end());
   autoautos = std::make_shared<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>>();
@@ -567,8 +582,13 @@ void Viewport::setGroundThreshold(float value) {
 }
 
 void Viewport::setScanIndex(uint32_t idx) {
+  for(auto& a:carsInWorld_){
+    a.second = *(a.first->getResults()[a.first->getSelectedCar()]->getGlobalPoints(idx));
+  }
   singleScanIdx_ = idx;
+  updateAutoAuto();
   updateGL();
+  emit scanChanged();
 }
 
 void Viewport::setLabelVisibility(uint32_t label, bool visible) {
@@ -1500,8 +1520,91 @@ void Viewport::setCameraByName(const std::string& name) {
   setCamera(cameras_[name]);
 }
 
+void Viewport::selectBox(std::vector<glow::vec4>& outpoints, const Eigen::Matrix4f& centerpose, const Eigen::Vector4f& corner) {
+  if (points_.size() == 0 || labels_.size() == 0) return;
+
+  bool showSingleScan = drawingOption_["single scan"];
+
+  ScopedBinder<GlVertexArray> vaoBinder(vao_points_);
+  ScopedBinder<GlProgram> programBinder(prgSelectBox_);
+  ScopedBinder<GlTransformFeedback> feedbackBinder(tfSelectBox_);  
+
+  prgSelectBox_.setUniform(GlUniform<bool>("removeGround", removeGround_));
+  prgSelectBox_.setUniform(GlUniform<float>("groundThreshold", groundThreshold_));
+  prgSelectBox_.setUniform(GlUniform<vec2>("tilePos", tilePos_));
+  prgSelectBox_.setUniform(GlUniform<float>("tileSize", tileSize_));
+  prgSelectBox_.setUniform(GlUniform<bool>("showAllPoints", drawingOption_["show all points"]));
+  prgSelectBox_.setUniform(GlUniform<int32_t>("heightMap", 1));
+  
+  float planeThreshold = planeThreshold_;
+  prgSelectBox_.setUniform(GlUniform<bool>("planeRemoval", planeRemoval_));
+  prgSelectBox_.setUniform(GlUniform<int32_t>("planeDimension", planeDimension_));
+  
+  if (planeDimension_ == 0) planeThreshold += tilePos_.x;
+  if (planeDimension_ == 1) planeThreshold += tilePos_.y;
+  if (planeDimension_ == 2 && points_.size() > 0) planeThreshold += points_[0]->pose(3, 3);
+  prgSelectBox_.setUniform(GlUniform<float>("planeThreshold", planeThreshold));
+  prgSelectBox_.setUniform(GlUniform<float>("planeDirection", planeDirection_));
+
+  prgSelectBox_.setUniform(GlUniform<Eigen::Matrix4f>("centerpose_inverse",centerpose.inverse()));
+  prgSelectBox_.setUniform(GlUniform<Eigen::Vector4f>("corner",corner));
+  
+  glActiveTexture(GL_TEXTURE0);
+  texTriangles_.bind();
+
+  glActiveTexture(GL_TEXTURE1);
+  texMinimumHeightMap_.bind();
+
+  glEnable(GL_RASTERIZER_DISCARD);
+
+  uint32_t count = 0;
+  uint32_t max_size = bufSelectedBox_.size();
+  uint32_t buffer_start = 0;
+  uint32_t buffer_size = bufLabels_.size();
+  
+
+  if (showSingleScan) {
+    buffer_start = scanInfos_[singleScanIdx_].start;
+    buffer_size = scanInfos_[singleScanIdx_].size;
+  }
+
+  while (count * max_size < buffer_size) {
+    uint32_t size = std::min<uint32_t>(max_size, buffer_size - count * max_size);
+    uint32_t bufferpos = buffer_start + count * max_size;
+    tfSelectBox_.begin(TransformFeedbackMode::POINTS);
+    glDrawArrays(GL_POINTS, bufferpos, size);
+    tfSelectBox_.end();
+
+    std::vector<uint32_t> bufout;
+    std::vector<glow::vec4> bufpoints;
+    
+    bufSelectedBox_.get(bufout);
+    
+    assert(bufSelectedBox_.size == bufSelectedBox_.size);
+    for (uint32_t i = 0; i < size; ++i){
+      if (bufout[i]){
+        std::vector<glow::vec4> buffer(1);
+        bufPoints_.get(buffer,bufferpos+i,1);
+        outpoints.push_back(buffer[0]);
+      }
+    }
+
+    count++;
+  }
+  std::cout << outpoints.size() << std::endl;
+
+  glDisable(GL_RASTERIZER_DISCARD);
+
+  glActiveTexture(GL_TEXTURE0);
+  texTriangles_.release();
+  glActiveTexture(GL_TEXTURE1);
+  texMinimumHeightMap_.release();
+}
+
 void Viewport::selectPolygon(std::vector<glow::vec4>& inpoints) {
   if (points_.size() == 0 || labels_.size() == 0) return;
+
+  bool showSingleScan = drawingOption_["single scan"];
 
   ScopedBinder<GlVertexArray> vaoBinder(vao_points_);
   ScopedBinder<GlProgram> programBinder(prgSelectPoly_);
@@ -1543,6 +1646,12 @@ void Viewport::selectPolygon(std::vector<glow::vec4>& inpoints) {
   uint32_t buffer_start = 0;
   uint32_t buffer_size = bufLabels_.size();
   
+
+  if (showSingleScan) {
+    buffer_start = scanInfos_[singleScanIdx_].start;
+    buffer_size = scanInfos_[singleScanIdx_].size;
+  }
+
   while (count * max_size < buffer_size) {
     uint32_t size = std::min<uint32_t>(max_size, buffer_size - count * max_size);
     uint32_t bufferpos = buffer_start + count * max_size;
@@ -1577,45 +1686,69 @@ void Viewport::selectPolygon(std::vector<glow::vec4>& inpoints) {
 }
 
 void Viewport::applyAutoAuto() {
-  std::vector<std::shared_ptr<std::map<std::string, Car>>> vect{first_cars_, more_cars_};
-  auto a = std::make_shared<AutoAuto>(vect);
-  (*autoautos)[a.get()] = a; //take a normal pointer as ID for the shared_ptr
+  
 
   //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 
   //inverse projection Matrix
   Eigen::Matrix4f mvpinv_ = conversion_.inverse() * mCamera->matrix().inverse() * projection_.inverse();
+  Eigen::Matrix4f mvp = projection_ * mCamera->matrix() * conversion_;
+  //std::cout<<"MVPinv\n"<<mvpinv_<<std::endl;
+  //std::cout<<"MVP\n"<<mvp<<std::endl;
+  //std::cout<< mvpinv_ * mvp << std::endl;
 
   //convert clicked points to a direction
   Eigen::Vector4f head;
   Eigen::Vector4f tail;
-  head<<polygonPoints_[0].x, -polygonPoints_[0].y,0,0;
-  tail<<polygonPoints_[3].x, -polygonPoints_[3].y,0,0;
+  head<< 2.0 * polygonPoints_[0].x/width() - 1.0, 2.0 * (1.0-polygonPoints_[0].y/height()) - 1.0,0.0, 1.0;
+  tail<< 2.0 * polygonPoints_[3].x/width() - 1.0, 2.0 * (1.0-polygonPoints_[3].y/height()) - 1.0,0.0, 1.0;
 
-  head = mvpinv_ * head;
-  tail = mvpinv_ * tail;
-  Eigen::Vector4f dir = (head-tail);
+  Eigen::Vector4f dir = ((mvpinv_ * head) - (mvpinv_ * tail));
+
 
   //list on points in the block
-  std::vector<glow::vec4> pts;
-  selectPolygon(pts);
+  auto pts = std::make_shared<std::vector<glow::vec4>>();
+  selectPolygon(*pts);
 
-  if(pts.size()<8){
+  if(pts->size()<8){
     std::cout<<"not enough points"<<std::endl;
     return;
   }
-  //AutoAuto a(cars_);
-  connect(a.get(), SIGNAL(carProgressUpdate(float)), this, SLOT(updateProgressbar(float)));
-  connect(a.get(), SIGNAL(carProgressFinished(AutoAuto*)),this, SLOT(afterAutoAuto(AutoAuto*)));
-  a->matchPosition(pts,dir);
-   
-  /*std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<matched[0]->getInlier()<<" Inliers"<<std::endl;
-  carPoints_= *(matched[0]->getGlobalPoints());
-  std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<carPoints_.size()<<" Points"<<std::endl;
-  bufCarPoints_.assign(carPoints_);
-  */
-  //updateGL();
+  float zsum=0;
+  for(const auto& p:*pts){
+    Eigen::Vector4f p_; p_ << p.x,p.y,p.z,1;
+    //if(zsum==0) std::cout<<"p_\n"<<p_<<std::endl;
+    p_ = mvp * p_;
+    p_ = p_ / p_.w();
+    //if(zsum==0) std::cout<<"mvp_p_\n"<<p_<<std::endl;
+    zsum+=p_.z();
+  }
 
+
+  zsum/=pts->size();
+  Eigen::Vector4f center;
+  center << 0.5*(head.x()+tail.x()),0.5*(head.y()+tail.y()),zsum,1;
+  //std::cout<<"center\n"<<center<<std::endl;
+  center = mvpinv_ * center;
+  center = center / center.w();
+  //std::cout<<"center_trans\n"<<center<<std::endl;
+
+  if (drawingOption_["single scan"]){
+    follow(*pts,dir,center);
+  }else{
+    //std::cout<<pts.size()<<" Points selected."<<std::endl;
+
+    std::vector<std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>>> vect{first_cars_, more_cars_};
+    auto a = std::make_shared<AutoAuto>(vect);
+    (*autoautos)[a.get()] = a; //take a normal pointer as ID for the shared_ptr
+
+
+    //AutoAuto a(cars_);
+    connect(a.get(), SIGNAL(carProgressUpdate(float)), this, SLOT(updateProgressbar(float)));
+    connect(a.get(), SIGNAL(carProgressFinished(AutoAuto*)),this, SLOT(afterAutoAuto(AutoAuto*)));
+    //std::cout<<"dir\n"<<dir<<std::endl;
+    a->matchPosition(pts,dir,center);
+  }
 }
 
 void Viewport::afterAutoAuto(AutoAuto* a_) {
@@ -1635,7 +1768,7 @@ void Viewport::afterAutoAuto(AutoAuto* a_) {
   connect(cardialog, SIGNAL(saveCar(std::shared_ptr<AutoAuto>)),this, SLOT(addAutoAutoToWorld(std::shared_ptr<AutoAuto>)));
   connect(cardialog, SIGNAL(windowClosed()),this, SLOT(updateAutoAuto()));
   connect(cardialog, SIGNAL(continueCar(std::shared_ptr<AutoAuto>)),this,SLOT(continueAutoAuto(std::shared_ptr<AutoAuto>)));
-
+  connect(this, SIGNAL(scanChanged()),cardialog, SLOT(viewChanged()));
   cardialog->show();
 }
 
@@ -1645,7 +1778,7 @@ void Viewport::continueAutoAuto(std::shared_ptr<AutoAuto> a){
 
 void Viewport::tempAutoAuto(std::shared_ptr<AutoAuto> a, int id){
   auto matched = a->getResults();
-  std::vector<glow::vec4> temppoints = *(matched[id]->getGlobalPoints());
+  std::vector<glow::vec4> temppoints = *(matched[id]->getGlobalPoints(singleScanIdx_));
   carPoints_.clear();
   for (auto const& c:carsInWorld_){
     carPoints_.insert(carPoints_.end(),c.second.begin(),c.second.end());
@@ -1656,7 +1789,7 @@ void Viewport::tempAutoAuto(std::shared_ptr<AutoAuto> a, int id){
 }
 
 void Viewport::addAutoAutoToWorld(std::shared_ptr<AutoAuto> a){
-  carsInWorld_[a] = *(a->getResults()[a->getSelectedCar()]->getGlobalPoints());
+  carsInWorld_[a] = *(a->getResults()[a->getSelectedCar()]->getGlobalPoints(singleScanIdx_));
   updateAutoAuto();
 }
 
@@ -1676,7 +1809,7 @@ void Viewport::updateProgressbar(float progress){
     progressdiag->setCancelButton(0);
     progressdiag->show();
     std::cout<<"SHOW"<<std::endl;
-  }
+  }else{ if(progressdiag == nullptr) return;}
   if (progress >= 1){
     delete progressdiag;
     progressdiag = nullptr;
@@ -1692,6 +1825,326 @@ std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> Viewport::getAut
   return autoautos;
 }
 
-std::shared_ptr<std::map<std::string, Car>> Viewport::getCars(){
+std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> Viewport::getCars(){
   return cars_;
+}
+
+void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f dir_, const Eigen::Vector4f center_){
+  Eigen::Vector3f f; f<<dir_.x(),dir_.y(),dir_.z();
+  //Eigen::Matrix4f mvp = projection_ * view_ * conversion_;
+  auto pointcloud = std::make_shared<std::vector<glow::vec4>>();
+  std::vector<double> pointcloud_;
+  std::shared_ptr<Car> mcar = std::make_shared<MovingCar>("_generated",pointcloud);
+  std::map<int,Eigen::Matrix4f> globalPoses;
+  int initpose = singleScanIdx_;
+
+  f=f.normalized();
+  Eigen::Vector3f u; u<<0,0,1;
+  Eigen::Vector3f s = f.cross(u).normalized();
+  u = s.cross(f).normalized();
+
+  Eigen::Matrix4f rottransmat;
+  rottransmat << s.x(), u.x(),-f.x(), center_.x(),
+                 s.y(), u.y(),-f.y(), center_.y(),
+                 s.z(), u.z(),-f.z(), center_.z(),
+                 0.,0.,0.,1.;
+
+  Eigen::Matrix4f orientation;
+  orientation << -1,0,0,0,
+                    0,0,1,0,
+                    0,1,0,0,
+                    0,0,0,1;
+
+  rottransmat*=orientation;
+  globalPoses[initpose] =rottransmat;
+  auto singlecloud = std::make_shared<std::vector<glow::vec4>>();
+  for(auto const& value: pts_) {
+    Eigen::Vector4f v;
+    v << value.x, value.y, value.z, 1;
+    v = rottransmat.inverse() * v;
+    pointcloud_.push_back(v.x());
+    pointcloud_.push_back(v.y());
+    pointcloud_.push_back(v.z());
+    pointcloud->push_back(vec4(v.x(),v.y(),v.z(),1));
+    singlecloud->push_back(vec4(v.x(),v.y(),v.z(),1));
+  }
+  mcar->setOriginalPoints(singlecloud,singleScanIdx_);
+
+  Eigen::Vector4f ahead,ahead_,toside;
+
+  //Eigen::Matrix4f toside,toside_,offset;
+  ahead_ << 0,-1,0,0; //1 Meter ahead
+  //toside_ = Eigen::Matrix4f::Identity();
+  toside << 1,0,0,0;
+  
+
+
+  std::vector<float> xlist;
+  std::vector<float> ylist;
+  std::vector<float> zlist;
+
+  for(auto const& value: pts_) {
+    Eigen::Vector4f v; 
+    v << value.x, value.y, value.z, 1;
+    v = rottransmat.inverse() * v;
+    xlist.push_back(v.x());
+    ylist.push_back(v.y());
+    zlist.push_back(v.z());
+  }
+  std::sort (xlist.begin(), xlist.end());
+  std::sort (ylist.begin(), ylist.end());
+  std::sort (zlist.begin(), zlist.end());
+
+
+  Eigen::Vector4f vec20; 
+  vec20 << 
+    xlist[floor(xlist.size()*0.2)],
+    ylist[floor(ylist.size()*0.2)],
+    zlist[floor(zlist.size()*0.2)],
+    1;
+  Eigen::Vector4f vec80;
+  vec80 << 
+    xlist[floor(xlist.size()*0.8)],
+    ylist[floor(ylist.size()*0.8)],
+    zlist[floor(zlist.size()*0.8)],
+    1;
+
+  std::cout<<"vec80\n"<<vec80<<"\nvec20\n"<<vec20<<std::endl;
+
+  Eigen::Vector4f corner; corner << std::max(fabs(vec80.x()),fabs(vec20.x())),
+                                    std::max(fabs(vec80.y()),fabs(vec20.y())),
+                                    std::max(fabs(vec80.z()),fabs(vec20.z())),
+                                    1;
+  float offset = corner.y();
+
+
+
+  corner *= 2.5; //(0.5/0.3)*1.2;
+
+
+
+  std::cout<<"corner\n"<<corner<<std::endl;
+
+  
+  int scancounter_forwards = singleScanIdx_;
+  int scancounter_backwards = singleScanIdx_;
+  int8_t forwards = -1;
+
+
+  std::map<float,Eigen::Matrix4f> rotations; 
+  for (float i=-1.5; i <= 6.5; i+=0.1){
+      float maxside=(abs(i)<sqrt(3))?2-sqrt(4-i*i):1;
+      maxside=round(maxside*10.)/10.;
+
+    for (float s=-maxside; s <= maxside; s+=0.1){
+
+      float alpha = 0;
+      
+        Eigen::Matrix4f rotation, offsetA, offsetB;
+        if (round(s*10)!=0){
+          alpha = PI-2*atan(i/s);
+        }else{
+          alpha = 0;
+        }
+        rotation <<
+          cos(alpha), -sin(alpha), 0,0,
+          sin(alpha), cos(alpha),0,0,
+          0,0,1,0,
+          0,0,0,1;
+        offsetA <<
+          1,0,0,0,
+          0,1,0,offset,
+          0,0,1,0,
+          0,0,0,1;
+        offsetB <<
+          1,0,0,0,
+          0,1,0,-offset,
+          0,0,1,0,
+          0,0,0,1;
+
+        rotations[1000*i+s] = offsetA * rotation * offsetB;
+    }
+  }
+
+
+
+  while(singleScanIdx_+1<(uint32_t)(scanInfos_.size())){    
+
+    if (scancounter_forwards==-1 && scancounter_backwards==-1 ) break;
+    if (scancounter_forwards!=-1 && scancounter_backwards!=-1 ) forwards=0-(forwards);
+    int scan;
+    if (forwards==1){
+      if (scancounter_forwards+1>=(int32_t)(scanInfos_.size())){
+        scancounter_forwards=-1;
+        forwards=-1;
+        continue;
+      }
+      scan = scancounter_forwards += 1;
+    }else{
+      if (scancounter_backwards-1<0){
+        scancounter_backwards=-1;
+        forwards=1;
+        continue;
+      }
+      scan = scancounter_backwards -= 1;
+    }
+    rottransmat = globalPoses[scan-forwards];
+
+    ahead = rottransmat * ahead_;
+    //toside = rottransmat * toside_;
+
+    rottransmat.col(3)+=ahead*1.5*forwards;
+
+ 
+    setScanIndex(scan);
+
+    std::vector<glow::vec4> newpts;
+    selectBox(newpts, rottransmat, corner);
+    if (newpts.size() <= 5) {
+      if (forwards==1){
+        scancounter_forwards=-1;
+        forwards=-1;
+        continue;
+      }else{
+        scancounter_backwards=-1;
+        forwards=1;
+        continue;
+      }
+    }
+    std::vector<double> scanPoints;
+    
+
+    for(auto const& value:newpts) {
+      scanPoints.push_back(value.x);
+      scanPoints.push_back(value.y);
+      scanPoints.push_back(value.z);
+    }
+
+    float min_i=0;
+    float min_s=0;
+    float valmin_i=999999;
+
+    //IcpPointToPoint icp(scanPoints.data(),scanPoints.size()/3,3,(float)1e-5);
+    IcpPointToPoint icp(pointcloud_.data(),pointcloud_.size()/3,3,(float)1e-5);
+    std::cout<<"<"<<std::flush;
+    ctpl::thread_pool pool{(int)std::thread::hardware_concurrency()};
+    std::mutex findmin;
+
+    for (float i=-1.5; i <= 5.5; i+=0.1){
+      float maxside=(abs(i)<sqrt(3))?2-sqrt(4-i*i):0.5;
+      maxside=round(maxside*10.)/10.;
+
+      for (float s=-maxside; s <= maxside; s+=0.1){
+        pool.push([&findmin,&min_i, &min_s, &valmin_i, &rottransmat, &rotations,i,s,&forwards,&toside,&ahead,&scanPoints,&icp, this](int){
+          auto rottransmat2 = rottransmat;
+         
+          rottransmat2 *= rotations[1000*i+s];
+          rottransmat2.col(3)+=toside * s;
+          rottransmat2.col(3)+=ahead*i*forwards;
+          //rottransmat2.col(3)+=toside*s;
+          rottransmat2 = rottransmat2.inverse();
+          FLOAT r_tmp[] = {
+            rottransmat2(0,0),rottransmat2(0,1),rottransmat2(0,2),
+            rottransmat2(1,0),rottransmat2(1,1),rottransmat2(1,2),
+            rottransmat2(2,0),rottransmat2(2,1),rottransmat2(2,2)
+          };
+          FLOAT t_tmp[] = {
+            rottransmat2(0,3),
+            rottransmat2(1,3),
+            rottransmat2(2,3)
+          };
+
+          Matrix rt_(3,3,r_tmp);
+          Matrix tt_(3,1,t_tmp);
+          
+          float result = icp.getSqDistance(scanPoints.data(),std::min(5000,(int)scanPoints.size()/3),rt_,tt_,-1);
+          //std::cout<<"FWD: "<<i<<" SIDE: "<<s<<" Alpha: "<<alpha*180/PI<<" result: "<<result<<std::endl;
+          findmin.lock();
+          if(result<valmin_i){
+            valmin_i = result;
+            min_i = i;
+            min_s = s;
+          }
+          findmin.unlock();
+        });
+      }
+
+    } 
+    pool.stop(true);
+    std::cout<<">"<<std::endl;
+
+    rottransmat *= rotations[1000*min_i+min_s];
+    rottransmat.col(3)+=toside * min_s;
+    rottransmat.col(3)+=ahead*min_i*forwards;
+    //rottransmat.col(3)+=ahead*min_s;
+    auto rtmi = rottransmat.inverse();
+
+    FLOAT r[] = {
+      rtmi(0,0),rtmi(0,1),rtmi(0,2),
+      rtmi(1,0),rtmi(1,1),rtmi(1,2),
+      rtmi(2,0),rtmi(2,1),rtmi(2,2)
+    };
+    FLOAT t[] = {
+      rtmi(0,3),
+      rtmi(1,3),
+      rtmi(2,3)
+    };
+
+    Matrix r_(3,3,r);
+    Matrix t_(3,1,t);
+
+    icp.max_iter=300;
+    icp.fit(scanPoints.data(),std::min(20000,(int)scanPoints.size()/3),r_,t_,0.05);
+    std::vector<bool> activePTS = icp.getInDistance(scanPoints.data(),std::min(20000,(int)scanPoints.size()/3),r_,t_,0.02);
+
+    //DemoCar
+    FLOAT r2[9];
+    FLOAT t2[3];
+    r_.getData(r2,0,0,2,2);
+    t_.getData(t2,0,0,2,0);
+
+    Eigen::Matrix4f newrotmat; newrotmat <<
+      r2[0], r2[1],r2[2], t2[0],
+      r2[3], r2[4],r2[5], t2[1],
+      r2[6], r2[7],r2[8], t2[2],
+      0.,0.,0.,1.;
+
+    rottransmat = newrotmat.inverse();
+    auto singlecloud = std::make_shared<std::vector<glow::vec4>>();
+
+    for(uint i=0;i<activePTS.size();i++){
+        Eigen::Vector4f v;
+        v << newpts[i].x, newpts[i].y, newpts[i].z, 1;
+        v = rottransmat.inverse() * v;
+      //if(!activePTS[i]){
+        pointcloud_.push_back(v.x());
+        pointcloud_.push_back(v.y());
+        pointcloud_.push_back(v.z());
+      //}
+        pointcloud->push_back(vec4(v.x(),v.y(),v.z(),1));
+        singlecloud->push_back(vec4(v.x(),v.y(),v.z(),1));
+    }
+    mcar->setOriginalPoints(singlecloud,singleScanIdx_);
+
+    globalPoses[scan] = rottransmat;
+
+    
+    
+  }
+  
+
+  
+  mcar->setPosition(globalPoses);
+  std::vector<std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>>> vect;
+  auto a = std::make_shared<AutoAuto>(vect);
+  a->setSelectedpts(pts_);
+  a->setDir(dir_);
+  a->addResult(mcar);
+  (*autoautos)[a.get()] = a;
+  //addAutoAutoToWorld(a);
+  setScanIndex(initpose);
+
+  updateGL();
+  afterAutoAuto(a.get());
+
 }

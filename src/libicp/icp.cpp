@@ -113,6 +113,11 @@ uint32_t Icp::getInlierSize (const double *T,const int32_t T_num,Matrix &R,Matri
 float Icp::getSqDistance (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist){
   return getInliersSqDistance(T,T_num,R,t,indist);
 }
+
+std::vector<bool> Icp::getInDistance (const double *T,const int32_t T_num,const Matrix &R,const Matrix &t,const double indist){
+  return getWorldPtsInDistance(T,T_num,R,t,indist);
+}
+
 void Icp::fitIterate(double *T,const int32_t T_num,Matrix &R,Matrix &t,const std::vector<int32_t> &active) {
   
   // check if we have at least 5 active points
