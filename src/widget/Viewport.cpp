@@ -1882,7 +1882,7 @@ void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f
   //Eigen::Matrix4f toside,toside_,offset;
   ahead_ << -1,0,0,0; //1 Meter ahead
   //toside_ = Eigen::Matrix4f::Identity();
-  toside << 0,0,0,0;
+  toside << 0,1,0,0;
   
 
 
