@@ -13,7 +13,6 @@ public:
   MovingCar(std::string model_, std::shared_ptr<std::vector<glow::vec4>> points_)
     { model = model_;
       points = points_;
-      position[0]=(Eigen::Matrix4f::Identity());
     };
   MovingCar(const Car& c):
     model(c.getModel()),
@@ -26,7 +25,7 @@ public:
     points(c.getPoints()),
     inlier(c.getInlier()) {
       position[0]=(c.getPosition());
-    };;
+    };
   ~MovingCar();
   void setPosition(Eigen::Matrix4f position_);
   void setPosition(std::map<int,Eigen::Matrix4f> position_);
@@ -47,6 +46,8 @@ public:
   std::shared_ptr<std::vector<glow::vec4>> getOriginalPoints();
   std::shared_ptr<std::vector<glow::vec4>> getOriginalPoints(int scan);
   std::string getPointString();
+  int getInitPose(){return initPose;};
+  void setInitPose(int i){initPose=i;};
 
 private:
   std::string pointGlowVectorToString(const std::shared_ptr<std::vector<glow::vec4>> v,Eigen::Matrix4f pose);
@@ -59,6 +60,7 @@ protected:
   std::map<int,Eigen::Matrix4f> position;
   float inlier {0};
   int scan{0};
+  int initPose{-1};
 
 };
 

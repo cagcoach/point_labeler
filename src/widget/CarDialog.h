@@ -20,6 +20,8 @@ signals:
 	void saveCar(std::shared_ptr<AutoAuto>);
 	void continueCar(std::shared_ptr<AutoAuto>);
 	void windowClosed();
+	void discardCar(std::shared_ptr<AutoAuto>);
+
 private slots:
 	void save();
 	void discard();
@@ -35,6 +37,7 @@ private:
 	void filllist();
 	void closeEvent(QCloseEvent *event);
 	void disconn();
+	bool success=false;
 };
 
 #endif

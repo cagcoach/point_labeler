@@ -13,6 +13,7 @@
 #include <string>
 #include <ctime>
 #include <random>
+#include <boost/algorithm/string.hpp>
 
 
 
@@ -24,17 +25,17 @@ AutoAuto::AutoAuto(const std::vector<std::shared_ptr<std::map<std::string, std::
 }
 
 AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> cars_, std::string config){
-	std::cout<<config<<std::endl;
-	Eigen::Matrix4f pose_;
-	Eigen::Vector4f dir_;
+	std::cout<<config.substr(0,100)<<std::endl;
   int type_;
-	std::string ps;
-	std::string model;
   cars.push_back(cars_);
   std::istringstream config_stream(config);
   config_stream >> type_;
   switch(type_){
     case Car::STATIC_CAR:{
+      Eigen::Matrix4f pose_;
+      Eigen::Vector4f dir_;
+      std::string ps;
+      std::string model;
       config_stream >>
         model >>
         pose_(0,0) >>
@@ -64,7 +65,7 @@ AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, std::shared_ptr<C
       try {
         c = std::make_shared<StaticCar>(*(cars[0]->at(model)));
       } catch (const std::out_of_range& oor) {
-          std::cerr << "Out of Range error: " << oor.what() << '\n';
+          //std::cerr << "Out of Range error: " << oor.what() << '\n';
           std::string message= "Car not in list: " + model;
           throw message.c_str();
       }
@@ -72,13 +73,98 @@ AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, std::shared_ptr<C
       c->setOriginalPoints(selectedpts);
       results.push_back(c);
       wanted_result_size =1;
-      std::cout<<ps<<std::endl;
+      //std::cout<<ps.substr(0,100)<<std::endl;
       connect(this, SIGNAL(carFinished()),this,SLOT(manageResults()));
     }
     break;
     case Car::MOVING_CAR:{
-      std::cout<<"-- TODO --"<<std::endl;
-      throw "Not Implemented";
+      Eigen::Vector4f dir_;
+      int initPose;
+      std::string positions_str;
+      std::string points_str;
+      config_stream >>
+        initPose >>
+        positions_str >>
+        dir_(0) >>
+        dir_(1) >>
+        dir_(2) >>
+        points_str;
+
+      //Split Positions
+      std::vector<std::string> single_pos_str;
+      std::map<int,Eigen::Matrix4f> position;
+      boost::split(single_pos_str, positions_str, [](char c){return c == ';';});
+      for (const auto& s:single_pos_str){
+        Eigen::Matrix4f pose_;
+        int scanid;
+        setlocale(LC_ALL|~LC_NUMERIC, "");
+        std::vector<std::string> num_single_pos_str;
+        std::vector<std::string> pose_str;
+        boost::split(num_single_pos_str, s, [](char c){return c == ':';});
+        scanid = std::stoi(num_single_pos_str[0]);
+        //boost::split(pose_str,num_single_pos_str[1], [](char c){return c == ',';});
+        
+        std::replace( num_single_pos_str[1].begin(), num_single_pos_str[1].end(), ',', ' ');
+        std::istringstream poses_txt(num_single_pos_str[1]);
+        poses_txt >>
+          pose_(0,0) >>
+          pose_(1,0) >>
+          pose_(2,0) >>
+          pose_(0,1) >>
+          pose_(1,1) >>
+          pose_(2,1) >>
+          pose_(0,2) >>
+          pose_(1,2) >>
+          pose_(2,2) >>
+          pose_(0,3) >>
+          pose_(1,3) >>
+          pose_(2,3);
+        pose_(3,0) = 0;
+        pose_(3,1) = 0;
+        pose_(3,2) = 0;
+        pose_(3,3) = 1;
+        std::cout<<pose_<<std::endl;
+        position[scanid] = pose_;
+        
+      }
+
+      //Split Points
+      std::vector<std::string> single_point_str;
+      boost::split(single_point_str, points_str, [](char c){return c == ';';});
+      std::map<int,std::shared_ptr<std::vector<glow::vec4>>> originalPoints;
+      
+      for (const auto& s:single_point_str){
+        std::vector<std::string> num_single_point_str;
+        int scanid;
+        boost::split(num_single_point_str, s, [](char c){return c == ':';});
+        scanid = std::stoi(num_single_point_str[0]);
+        originalPoints[scanid]=std::make_shared<std::vector<glow::vec4>>();
+        *(originalPoints[scanid])=pointStringToGlowVector(num_single_point_str[1], position[scanid]);
+      }
+
+
+      auto globalPoints=std::make_shared<std::vector<glow::vec4>>();
+
+      for(const auto& i:originalPoints){
+        auto pose_ = position[i.first];
+        for(const auto& p:*(i.second)){
+          Eigen::Vector4f v;
+          v << p.x, p.y, p.z, 1;
+          v = pose_.inverse() * v; 
+          globalPoints->push_back(vec4(v.x(),v.y(),v.z(),1));
+          //globalPoints->push_back(p);
+        }
+      }
+
+      auto c = std::make_shared<MovingCar>("_generated",globalPoints);
+      c->setPosition(position);
+      c->setOriginalPoints(originalPoints);
+      c->setInitPose(initPose);
+      results.push_back(std::dynamic_pointer_cast<Car>(c));
+      wanted_result_size =1;
+      
+
+      //throw "[TODO] Loading Moving_Car not Implemented";
     }
     break;
     default:
@@ -291,15 +377,15 @@ void AutoAuto::matchPosition(const std::shared_ptr<std::vector<glow::vec4>> pts,
 
     Eigen::Vector4f vec20; 
     vec20 << 
-      xlist[floor(xlist.size()*0.2)],
-      ylist[floor(ylist.size()*0.2)],
-      zlist[floor(zlist.size()*0.2)],
+      xlist[floor(xlist.size()*0.05)],
+      ylist[floor(ylist.size()*0.05)],
+      zlist[floor(zlist.size()*0.05)],
       1;
     Eigen::Vector4f vec80;
     vec80 << 
-      xlist[floor(xlist.size()*0.8)],
-      ylist[floor(ylist.size()*0.8)],
-      zlist[floor(zlist.size()*0.8)],
+      xlist[floor(xlist.size()*0.95)],
+      ylist[floor(ylist.size()*0.95)],
+      zlist[floor(zlist.size()*0.95)],
       1;
     
     carpos = vec20 + (0.5 * (vec80-vec20));
@@ -442,19 +528,21 @@ std::string AutoAuto::pointGlowVectorToString(const std::vector<glow::vec4> v,Ei
 
 }
 
-std::vector<glow::vec4> AutoAuto::pointStringToGlowVector(const std::string s,Eigen::Matrix4f pose){
+std::vector<glow::vec4> AutoAuto::pointStringToGlowVector(const std::string s,Eigen::Matrix4f pose__){
 	std::vector<glow::vec4> outvec;
 	for(unsigned int i=0;i<s.length();i+=8){
 		std::vector<BYTE>coords = base64_decode(s.substr(i, 8));
 		Eigen::Vector4f e;
-		e.x() = (float)((int16_t *)coords.data())[0];
-		e.y() = (float)((int16_t *)coords.data())[1];
-		e.z() = (float)((int16_t *)coords.data())[2];
-		e.w() = 1;
-		e=pose*e/1000.;
+		e << (float)((int16_t *)coords.data())[0],
+		     (float)((int16_t *)coords.data())[1],
+		     (float)((int16_t *)coords.data())[2],
+		     1;
+
+		e=pose__*e/1000.;
 		outvec.push_back(glow::vec4(e.x(),e.y(),e.z(),1));
-		
+		std::cout<<e.x()<<","<<e.y()<<","<<e.z()<<std::endl;
 	}
+  std::cout<<pose__<<std::endl;
 	return outvec;
 }
 
@@ -492,6 +580,7 @@ std::string AutoAuto::getString(int i){
     case Car::MOVING_CAR:{
       auto mcar = std::dynamic_pointer_cast<MovingCar>(results[i]);
       s << static_cast<int>(results[i]->getType())<<" ";
+      s << mcar->getInitPose()<<" ";
       bool first=true;
       for (auto const& x : mcar->getPositions()){
         if (!first){

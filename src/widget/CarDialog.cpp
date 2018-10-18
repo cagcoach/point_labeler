@@ -4,8 +4,8 @@
 
 CarDialog::CarDialog(std::shared_ptr<AutoAuto> a_, QWidget* parent,bool more) : a(a_),QDialog(parent){
 	
+	this->setAttribute(Qt::WA_DeleteOnClose);
 	carList = new QListWidget(this);
-
 
 	buttonBox = new QDialogButtonBox(QDialogButtonBox::Save
                                      | QDialogButtonBox::Cancel);
@@ -42,18 +42,18 @@ void CarDialog::filllist(){
 }
 
 void CarDialog::save(){
+	success=true;
 	a->setSelectedCar(carList->currentRow());
 	emit saveCar(a);
 	//a->getString();
-	disconn();
 	close();
-	this->deleteLater();
+	disconn();
 }
 
 void CarDialog::discard(){
-	disconn();
+	
 	close();
-	this->deleteLater();
+	disconn();
 }
 
 void CarDialog::continue_(){
@@ -66,6 +66,10 @@ void CarDialog::selectionChanged(){
 }
 
 void CarDialog::closeEvent(QCloseEvent *event){
+	if (!success){
+		std::cout<<"DELETE CAR!"<<std::endl;
+		emit discardCar(a);
+	}
 	emit windowClosed();
 }
 

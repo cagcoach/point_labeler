@@ -1752,7 +1752,7 @@ void Viewport::applyAutoAuto() {
 }
 
 void Viewport::afterAutoAuto(AutoAuto* a_) {
-  std::cout<<"SIGNAL"<<std::endl;
+  //std::cout<<"SIGNAL"<<std::endl;
   auto a = (*autoautos)[a_]; //get shared_ptr of a_
   auto matched = a->getResults();
   //std::cout<<"MAX: "<<matched[0]->getModel()<<": "<<matched[0]->getInlier()<<" Inliers"<<std::endl;
@@ -1766,6 +1766,7 @@ void Viewport::afterAutoAuto(AutoAuto* a_) {
   CarDialog* cardialog = new CarDialog(a, this);
   connect(cardialog, SIGNAL(changeCar(std::shared_ptr<AutoAuto>, int)),this, SLOT(tempAutoAuto(std::shared_ptr<AutoAuto>, int)));
   connect(cardialog, SIGNAL(saveCar(std::shared_ptr<AutoAuto>)),this, SLOT(addAutoAutoToWorld(std::shared_ptr<AutoAuto>)));
+  connect(cardialog, SIGNAL(discardCar(std::shared_ptr<AutoAuto>)),this, SLOT(deleteAutoAuto(std::shared_ptr<AutoAuto>)));
   connect(cardialog, SIGNAL(windowClosed()),this, SLOT(updateAutoAuto()));
   connect(cardialog, SIGNAL(continueCar(std::shared_ptr<AutoAuto>)),this,SLOT(continueAutoAuto(std::shared_ptr<AutoAuto>)));
   connect(this, SIGNAL(scanChanged()),cardialog, SLOT(viewChanged()));
@@ -1789,6 +1790,7 @@ void Viewport::tempAutoAuto(std::shared_ptr<AutoAuto> a, int id){
 }
 
 void Viewport::addAutoAutoToWorld(std::shared_ptr<AutoAuto> a){
+  std::cout<<"ADD2WORLD"<<std::endl;
   carsInWorld_[a] = *(a->getResults()[a->getSelectedCar()]->getGlobalPoints(singleScanIdx_));
   updateAutoAuto();
 }
@@ -1802,22 +1804,27 @@ void Viewport::updateAutoAuto(){
   updateGL();
 }
 
+void Viewport::deleteAutoAuto(std::shared_ptr<AutoAuto> a){
+  std::cout<<"DELETE"<<std::endl;
+  autoautos->erase(a.get());
+  carsInWorld_.erase(a);
+}
 
 void Viewport::updateProgressbar(float progress){
   if (progressdiag == nullptr && progress<1){
     progressdiag = new QProgressDialog("Operation in progress.", "Cancel", 0, 100);
     progressdiag->setCancelButton(0);
     progressdiag->show();
-    std::cout<<"SHOW"<<std::endl;
+    //std::cout<<"SHOW"<<std::endl;
   }else{ if(progressdiag == nullptr) return;}
   if (progress >= 1){
     delete progressdiag;
     progressdiag = nullptr;
-    std::cout<<"HIDE"<<std::endl;
+    //std::cout<<"HIDE"<<std::endl;
 
   } else{
     progressdiag->setValue(progress*100);
-    std::cout<<"UPDATE"<<std::endl;
+    //std::cout<<"UPDATE"<<std::endl;
   }
 }
 
@@ -1834,7 +1841,7 @@ void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f
   //Eigen::Matrix4f mvp = projection_ * view_ * conversion_;
   auto pointcloud = std::make_shared<std::vector<glow::vec4>>();
   std::vector<double> pointcloud_;
-  std::shared_ptr<Car> mcar = std::make_shared<MovingCar>("_generated",pointcloud);
+  std::shared_ptr<MovingCar> mcar = std::make_shared<MovingCar>("_generated",pointcloud);
   std::map<int,Eigen::Matrix4f> globalPoses;
   int initpose = singleScanIdx_;
 
@@ -1850,10 +1857,10 @@ void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f
                  0.,0.,0.,1.;
 
   Eigen::Matrix4f orientation;
-  orientation << -1,0,0,0,
-                    0,0,1,0,
-                    0,1,0,0,
-                    0,0,0,1;
+  orientation << 0,1, 0, 0,
+                 0, 0, 1, 0,
+                1, 0, 0, 0,
+                 0, 0, 0, 1;
 
   rottransmat*=orientation;
   globalPoses[initpose] =rottransmat;
@@ -1866,16 +1873,16 @@ void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f
     pointcloud_.push_back(v.y());
     pointcloud_.push_back(v.z());
     pointcloud->push_back(vec4(v.x(),v.y(),v.z(),1));
-    singlecloud->push_back(vec4(v.x(),v.y(),v.z(),1));
+    singlecloud->push_back(vec4(value.x,value.y,value.z,1));
   }
   mcar->setOriginalPoints(singlecloud,singleScanIdx_);
 
   Eigen::Vector4f ahead,ahead_,toside;
 
   //Eigen::Matrix4f toside,toside_,offset;
-  ahead_ << 0,-1,0,0; //1 Meter ahead
+  ahead_ << -1,0,0,0; //1 Meter ahead
   //toside_ = Eigen::Matrix4f::Identity();
-  toside << 1,0,0,0;
+  toside << 0,0,0,0;
   
 
 
@@ -1916,12 +1923,7 @@ void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f
                                     std::max(fabs(vec80.z()),fabs(vec20.z())),
                                     1;
   float offset = corner.y();
-
-
-
   corner *= 2.5; //(0.5/0.3)*1.2;
-
-
 
   std::cout<<"corner\n"<<corner<<std::endl;
 
@@ -1966,10 +1968,7 @@ void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f
     }
   }
 
-
-
   while(singleScanIdx_+1<(uint32_t)(scanInfos_.size())){    
-
     if (scancounter_forwards==-1 && scancounter_backwards==-1 ) break;
     if (scancounter_forwards!=-1 && scancounter_backwards!=-1 ) forwards=0-(forwards);
     int scan;
@@ -2012,7 +2011,6 @@ void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f
       }
     }
     std::vector<double> scanPoints;
-    
 
     for(auto const& value:newpts) {
       scanPoints.push_back(value.x);
@@ -2114,6 +2112,7 @@ void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f
 
     for(uint i=0;i<activePTS.size();i++){
         Eigen::Vector4f v;
+        Eigen::Vector4f v2;
         v << newpts[i].x, newpts[i].y, newpts[i].z, 1;
         v = rottransmat.inverse() * v;
       //if(!activePTS[i]){
@@ -2122,24 +2121,20 @@ void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f
         pointcloud_.push_back(v.z());
       //}
         pointcloud->push_back(vec4(v.x(),v.y(),v.z(),1));
-        singlecloud->push_back(vec4(v.x(),v.y(),v.z(),1));
+        singlecloud->push_back(vec4(newpts[i].x,newpts[i].y,newpts[i].z,1));
     }
-    mcar->setOriginalPoints(singlecloud,singleScanIdx_);
-
+    mcar->setOriginalPoints(singlecloud,scan);
     globalPoses[scan] = rottransmat;
 
-    
-    
   }
   
-
-  
   mcar->setPosition(globalPoses);
+  mcar->setInitPose(initpose);
   std::vector<std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>>> vect;
   auto a = std::make_shared<AutoAuto>(vect);
   a->setSelectedpts(pts_);
   a->setDir(dir_);
-  a->addResult(mcar);
+  a->addResult(std::dynamic_pointer_cast<Car>(mcar));
   (*autoautos)[a.get()] = a;
   //addAutoAutoToWorld(a);
   setScanIndex(initpose);

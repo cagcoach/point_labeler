@@ -141,6 +141,7 @@ class Viewport : public QGLWidget {
   void updateProgressbar(float progress);
   void tempAutoAuto(std::shared_ptr<AutoAuto>, int);
   void addAutoAutoToWorld(std::shared_ptr<AutoAuto>);
+  void deleteAutoAuto(std::shared_ptr<AutoAuto> a);
   void updateAutoAuto();
   void continueAutoAuto(std::shared_ptr<AutoAuto> a);
 

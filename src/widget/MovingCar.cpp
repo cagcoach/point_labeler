@@ -89,13 +89,14 @@ std::string MovingCar::getPointString(){
 	return out.str();
 }
 
-std::string MovingCar::pointGlowVectorToString(const std::shared_ptr<std::vector<glow::vec4>> v,Eigen::Matrix4f pose){
+std::string MovingCar::pointGlowVectorToString(const std::shared_ptr<std::vector<glow::vec4>> v,Eigen::Matrix4f pose__){
 	std::string outvec = "";
 	std::vector<Eigen::Vector4f> ev;
 	for(const auto& p:(*v)){
 		Eigen::Vector4f e;
-		e<<p.x,p.y,p.z,1;
-		e=pose.inverse()*e*1000;
+		e<<p.x,p.y,p.z,0;
+		std::cout<<p.x<<","<<p.y<<","<<p.z<<std::endl;
+		e=pose__.inverse()*e*1000;
 		int16_t coords[3];
 		if(e.x()>32767 || e.x()<-32767 ||e.y()>32767 || e.y()<-32767 ||e.z()>32767 || e.z()<-32767){
 			std::cout<<"[ ERROR ]  Coordinates out of Range"<<e.x()<<","<<e.y()<<","<<e.z()<<std::endl;
@@ -108,7 +109,11 @@ std::string MovingCar::pointGlowVectorToString(const std::shared_ptr<std::vector
 
 		outvec += base64_encode((BYTE*) coords, 6);
 		//(char *)coords;
+
 	}
+	std::cout<<pose__<<std::endl;
+
+
 	return outvec;
 
 }
