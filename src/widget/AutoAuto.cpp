@@ -71,6 +71,7 @@ AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, std::shared_ptr<C
       }
       c->setPosition(pose_);
       c->setOriginalPoints(selectedpts);
+      c->setPointString(ps);
       results.push_back(c);
       wanted_result_size =1;
       //std::cout<<ps.substr(0,100)<<std::endl;
@@ -160,6 +161,7 @@ AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, std::shared_ptr<C
       c->setPosition(position);
       c->setOriginalPoints(originalPoints);
       c->setInitPose(initPose);
+      c->setPointString(points_str);
       results.push_back(std::dynamic_pointer_cast<Car>(c));
       wanted_result_size =1;
       
@@ -465,19 +467,22 @@ void AutoAuto::manageResults(){
   int ressize = results.size();
 	//results.push_back(car);
 	manageResultsMutex.lock();
-	//std::cout<<"RESULT "<<results.size()<<"/"<<cars->size()<<std::endl;
-	emit carProgressUpdate((float)ressize/wanted_result_size);
-	if (ressize==wanted_result_size){
-    std::cout<<"Total: "<<duration<<" seconds"<<std::endl;
-	  auto cmp = [](std::shared_ptr<Car> const & a, std::shared_ptr<Car> const & b) { 
-	    return a->getInlier() < b->getInlier();
-	  };
+  if (triggeredforsize < ressize) {
+    triggeredforsize = ressize;
+  	//std::cout<<"RESULT "<<results.size()<<"/"<<cars->size()<<std::endl;
+  	emit carProgressUpdate((float)ressize/wanted_result_size);
+  	if (ressize==wanted_result_size){
+      std::cout<<"Total: "<<duration<<" seconds"<<std::endl;
+  	  auto cmp = [](std::shared_ptr<Car> const & a, std::shared_ptr<Car> const & b) { 
+  	    return a->getInlier() < b->getInlier();
+  	  };
 
-	  std::sort(results.begin(),results.end(),cmp);
-	  emit carProgressFinished(this);
-	  pool.stop(true);
-	  //std::cout<<"GOT ALL RESULTS"<<std::endl;
-	}
+  	  std::sort(results.begin(),results.end(),cmp);
+  	  emit carProgressFinished(this);
+  	  pool.stop(true);
+  	  //std::cout<<"GOT ALL RESULTS"<<std::endl;
+  	}
+  }
 	manageResultsMutex.unlock();
 
 }
@@ -509,7 +514,8 @@ std::string AutoAuto::pointGlowVectorToString(const std::vector<glow::vec4> v,Ei
 	std::vector<Eigen::Vector4f> ev;
 	for(const auto& p:v){
 		Eigen::Vector4f e;
-		e<<p.x,p.y,p.z,1;
+		e<<p.x,p.y,p.z,0;
+    std::cout<<e.x()<<","<<e.y()<<","<<e.z()<<std::endl;
 		e=pose.inverse()*e*1000;
 		int16_t coords[3];
 		if(e.x()>32767 || e.x()<-32767 ||e.y()>32767 || e.y()<-32767 ||e.z()>32767 || e.z()<-32767){

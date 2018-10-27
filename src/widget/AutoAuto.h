@@ -67,6 +67,7 @@ class AutoAuto : public QObject{
     int wanted_result_size = 0;
     int selectedcar=0;
     double duration=0;
+    int triggeredforsize = -1;
 };
 
 #endif

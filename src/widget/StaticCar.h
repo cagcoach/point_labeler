@@ -39,6 +39,8 @@ public:
 
   Car::Type getType(){return Car::STATIC_CAR;};
   std::string getPointString();
+  void setPointString(std::string ps);
+
 
 private:
   std::string pointGlowVectorToString(const std::shared_ptr<std::vector<glow::vec4>> v,Eigen::Matrix4f pose);
@@ -50,6 +52,8 @@ protected:
   std::shared_ptr<std::vector<glow::vec4>> originalPoints {nullptr};
   Eigen::Matrix4f position;
   float inlier {0};
+  bool changed=true;
+  std::string pointString;
 
 };
 

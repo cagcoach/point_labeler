@@ -31,6 +31,7 @@ public:
   enum Type{STATIC_CAR = 0, MOVING_CAR = 1};
   virtual Type getType() = 0;
   virtual std::string getPointString()=0;
+  virtual void setPointString(std::string ps)=0;
   /*
   static std::shared_ptr<Car> make_car(Type t){
     switch(t){

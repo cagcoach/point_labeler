@@ -46,6 +46,7 @@ public:
   std::shared_ptr<std::vector<glow::vec4>> getOriginalPoints();
   std::shared_ptr<std::vector<glow::vec4>> getOriginalPoints(int scan);
   std::string getPointString();
+  void setPointString(std::string ps);
   int getInitPose(){return initPose;};
   void setInitPose(int i){initPose=i;};
 
@@ -61,6 +62,8 @@ protected:
   float inlier {0};
   int scan{0};
   int initPose{-1};
+  bool changed=true;
+  std::string pointString;
 
 };
 

@@ -7,10 +7,12 @@ MovingCar::~MovingCar(){
 }
 void MovingCar::setPosition(Eigen::Matrix4f position_) {
 	position[scan]=position_;
+	changed=true;
 };
 
 void MovingCar::setPosition(std::map<int,Eigen::Matrix4f> position_){
 	position=position_;
+	changed=true;
 }
 
 Eigen::Matrix4f MovingCar::getPosition() const {
@@ -43,6 +45,7 @@ std::shared_ptr<std::vector<glow::vec4>> MovingCar::getGlobalPoints(const int sc
 }
 void MovingCar::setInlier(float i) {
 	inlier=i;
+	changed=true;
 }
 float MovingCar::getInlier() const{
 	return inlier;
@@ -54,14 +57,17 @@ std::map<int,Eigen::Matrix4f> MovingCar::getPositions(){
 
 void MovingCar::setOriginalPoints(std::shared_ptr<std::vector<glow::vec4>> op){
 	originalPoints[scan] = op;
+	changed=true;
 }
 
 void MovingCar::setOriginalPoints(std::shared_ptr<std::vector<glow::vec4>> op, int scan_){
 	originalPoints[scan_] = op;
+	changed=true;
 }
 
 void MovingCar::setOriginalPoints(std::map<int,std::shared_ptr<std::vector<glow::vec4>>> op){
 	originalPoints = op;
+	changed=true;
 }
 
 std::shared_ptr<std::vector<glow::vec4>> MovingCar::getOriginalPoints(){
@@ -72,7 +78,14 @@ std::shared_ptr<std::vector<glow::vec4>> MovingCar::getOriginalPoints(int scan_)
 	return originalPoints.at(scan_);
 }
 
+void MovingCar::setPointString(std::string ps){
+	pointString=ps;
+	changed=false;
+}
+
 std::string MovingCar::getPointString(){
+	if (!changed) return pointString;
+
 	std::stringstream out;
 	bool first=true;
 	for(const auto& v:originalPoints){
@@ -85,8 +98,8 @@ std::string MovingCar::getPointString(){
 		out << ":";
 		out << pointGlowVectorToString(v.second,position.at(v.first));
 	}
-
-	return out.str();
+	pointString = out.str();
+	return pointString;
 }
 
 std::string MovingCar::pointGlowVectorToString(const std::shared_ptr<std::vector<glow::vec4>> v,Eigen::Matrix4f pose__){

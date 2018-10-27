@@ -7,11 +7,13 @@ StaticCar::~StaticCar(){
 
 void StaticCar::setPosition(Eigen::Matrix4f position_) {
 	position=position_;
+	changed=true;
 };
 
 void StaticCar::setPosition(std::map<int,Eigen::Matrix4f> position_) {
 	position=position_.at(0);
 	std::cout<<"Only saving first element as static"<<std::endl;
+	changed=true;
 };
 
 Eigen::Matrix4f StaticCar::getPosition() const {
@@ -45,6 +47,7 @@ std::shared_ptr<std::vector<glow::vec4>> StaticCar::getGlobalPoints(int scan) co
 
 void StaticCar::setInlier(float i) {
 	inlier=i;
+	changed=true;
 }
 
 float StaticCar::getInlier() const{
@@ -53,10 +56,12 @@ float StaticCar::getInlier() const{
 
 void StaticCar::setOriginalPoints(std::shared_ptr<std::vector<glow::vec4>> op){
 	originalPoints = op;
+	changed=true;
 }
 
 void StaticCar::setOriginalPoints(std::shared_ptr<std::vector<glow::vec4>> op, int scan){
 	originalPoints = op;
+	changed=true;
 }
 
 void StaticCar::setOriginalPoints(std::map<int,std::shared_ptr<std::vector<glow::vec4>>> op){
@@ -64,6 +69,7 @@ void StaticCar::setOriginalPoints(std::map<int,std::shared_ptr<std::vector<glow:
 	for(const auto& v:op){
 		originalPoints->insert(originalPoints->end(),v.second->begin(),v.second->end());
 	}
+	changed=true;
 }
 
 std::shared_ptr<std::vector<glow::vec4>> StaticCar::getOriginalPoints(){
@@ -74,8 +80,17 @@ std::shared_ptr<std::vector<glow::vec4>> StaticCar::getOriginalPoints(int scan){
 	return originalPoints;
 }
 
+void StaticCar::setPointString(std::string ps){
+	pointString=ps;
+	changed=false;
+}
+
 std::string StaticCar::getPointString(){
-	return pointGlowVectorToString(getOriginalPoints(),getPosition());
+	if (changed) {
+		pointString = pointGlowVectorToString(getOriginalPoints(),getPosition());
+		return pointString;
+	};
+	return pointString;
 	//std::cout << s.str().substr(0,(s.str().length()>800?800:s.str().length())) <<" [...]"<< std::endl;
 	//std::vector<glow::vec4> v = pointStringToGlowVector(s ,results[selectedcar]->getPosition());
 }
@@ -85,7 +100,7 @@ std::string StaticCar::pointGlowVectorToString(const std::shared_ptr<std::vector
 	std::vector<Eigen::Vector4f> ev;
 	for(const auto& p:(*v)){
 		Eigen::Vector4f e;
-		e<<p.x,p.y,p.z,1;
+		e<<p.x,p.y,p.z,0;
 		e=pose.inverse()*e*1000;
 		int16_t coords[3];
 		if(e.x()>32767 || e.x()<-32767 ||e.y()>32767 || e.y()<-32767 ||e.z()>32767 || e.z()<-32767){
