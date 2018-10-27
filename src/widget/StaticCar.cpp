@@ -98,7 +98,7 @@ std::string StaticCar::getPointString(){
 std::string StaticCar::pointGlowVectorToString(const std::shared_ptr<std::vector<glow::vec4>> v,Eigen::Matrix4f pose){
 	std::string outvec = "";
 	std::vector<Eigen::Vector4f> ev;
-	for(const auto& p:(*v)){
+	for(const auto p:(*v)){
 		Eigen::Vector4f e;
 		e<<p.x,p.y,p.z,1;
 		e=pose.inverse()*e*1000;

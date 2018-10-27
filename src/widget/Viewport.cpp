@@ -47,6 +47,7 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
       texTempHeightMap_(100, 100, TextureFormat::R_FLOAT),
       texTriangles_(3 * 100, 1, TextureFormat::RGB) {
   connect(&timer_, &QTimer::timeout, [this]() { this->updateGL(); });
+  connect(this, SIGNAL(scanChanged()),this, SLOT(updateCarsInWorld()));
 
   //  setMouseTracking(true);
 
@@ -582,13 +583,22 @@ void Viewport::setGroundThreshold(float value) {
 }
 
 void Viewport::setScanIndex(uint32_t idx) {
-  for(auto& a:carsInWorld_){
-    a.second = *(a.first->getResults()[a.first->getSelectedCar()]->getGlobalPoints(idx));
-  }
   singleScanIdx_ = idx;
-  updateAutoAuto();
   updateGL();
   emit scanChanged();
+}
+
+void Viewport::updateCarsInWorld(){
+int idx=singleScanIdx_;
+updateCarsInWorldMutex.lock();
+if (carsInWorldIdx != idx){
+  for(auto& a:carsInWorld_){
+    a.second = *(a.first->getResults()[a.first->getSelectedCar()]->getGlobalPoints(idx));
+    if (idx!=singleScanIdx_) break;
+  }
+}
+updateAutoAuto();
+updateCarsInWorldMutex.unlock();
 }
 
 void Viewport::setLabelVisibility(uint32_t label, bool visible) {
@@ -1796,6 +1806,7 @@ void Viewport::addAutoAutoToWorld(std::shared_ptr<AutoAuto> a){
   std::cout<<"ADD2WORLD"<<std::endl;
   carsInWorld_[a] = *(a->getResults()[a->getSelectedCar()]->getGlobalPoints(singleScanIdx_));
   updateAutoAuto();
+  emit labelingChanged();
 }
 
 void Viewport::updateAutoAuto(){

@@ -334,8 +334,10 @@ void Mainframe::save() {
   info_->show();
 
   statusBar()->showMessage("Writing labels...");
-  ui.mViewportXYZ->updateLabels();
-  reader_.update(indexes_, labels_);
+  if(!protect_labels){
+    ui.mViewportXYZ->updateLabels();
+    reader_.update(indexes_, labels_);
+  }
   aar_.save();
 
   progressLabeled_.setValue(100.0f * ui.mViewportXYZ->labeledPointCount() / ui.mViewportXYZ->loadedPointCount());
@@ -713,6 +715,18 @@ void Mainframe::readConfig() {
         std::cout << "-- [ERROR] Could not set 'camera' to " << value << ". Undefined camera. Using default."
                   << std::endl;
       }
+    }
+    if (tokens[0] == "protect_labels") {
+      protect_labels = true;
+      ui.actionPaintMode->setEnabled(false);
+      ui.btnBrushMode->setEnabled(false);
+      ui.actionPolygonMode->setEnabled(false);
+      ui.btnPolygonMode->setEnabled(false);
+
+      ui.actionPaintMode->setToolTip("This function has been disabled in settings.conf");
+      ui.btnBrushMode->setToolTip("This function has been disabled in settings.conf");
+      ui.actionPolygonMode->setToolTip("This function has been disabled in settings.conf");
+      ui.btnPolygonMode->setToolTip("This function has been disabled in settings.conf");
     }
   }
 

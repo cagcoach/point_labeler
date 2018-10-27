@@ -33,6 +33,8 @@ class Mainframe : public QMainWindow {
   void updateFiltering(bool value);
   void labelBtnReleased(QWidget*);
 
+
+
  signals:
   void readerStarted();
   void readerFinshed();
@@ -61,6 +63,7 @@ class Mainframe : public QMainWindow {
   void updateMovingStatus(bool isMoving);
 
   void updateLabelButtons();
+
 
   std::vector<uint32_t> indexes_;
   std::vector<PointcloudPtr> points_;
@@ -106,6 +109,9 @@ class Mainframe : public QMainWindow {
   QLabel lblOverwrite_;
   QProgressBar progressLabeled_;
   QWidget* info_;
+  bool protect_labels=false;
+
+
 };
 
 #endif /* MAINFRAME_H_ */

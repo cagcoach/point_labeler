@@ -9,6 +9,7 @@
 #include <list>
 #include <set>
 #include <vector>
+#include <mutex>
 
 #include <glow/glbase.h>
 
@@ -144,6 +145,8 @@ class Viewport : public QGLWidget {
   void deleteAutoAuto(std::shared_ptr<AutoAuto> a);
   void updateAutoAuto();
   void continueAutoAuto(std::shared_ptr<AutoAuto> a);
+  void updateCarsInWorld();
+
 
 
  protected:
@@ -339,6 +342,9 @@ class Viewport : public QGLWidget {
 
   CameraProjection projectionMode_{CameraProjection::perspective};
   QProgressDialog* progressdiag{nullptr};
+
+  int32_t carsInWorldIdx = -1;
+  std::mutex updateCarsInWorldMutex;
 
 };
 
