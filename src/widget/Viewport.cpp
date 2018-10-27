@@ -1714,18 +1714,21 @@ void Viewport::applyAutoAuto() {
     std::cout<<"not enough points"<<std::endl;
     return;
   }
-  float zsum=0;
+  std::vector<float> p_z;
+  
   for(const auto& p:*pts){
     Eigen::Vector4f p_; p_ << p.x,p.y,p.z,1;
     //if(zsum==0) std::cout<<"p_\n"<<p_<<std::endl;
     p_ = mvp * p_;
     p_ = p_ / p_.w();
     //if(zsum==0) std::cout<<"mvp_p_\n"<<p_<<std::endl;
-    zsum+=p_.z();
+    p_z.push_back(p_.z());
   }
+  std::sort (p_z.begin(), p_z.end());
+  float zsum = (p_z[floor(p_z.size()*0.05)]+p_z[floor(p_z.size()*0.95)])/2.;
 
 
-  zsum/=pts->size();
+  //zsum/=pts->size();
   Eigen::Vector4f center;
   center << 0.5*(head.x()+tail.x()),0.5*(head.y()+tail.y()),zsum,1;
   //std::cout<<"center\n"<<center<<std::endl;

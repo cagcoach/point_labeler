@@ -123,7 +123,7 @@ AutoAuto::AutoAuto(const std::shared_ptr<std::map<std::string, std::shared_ptr<C
         pose_(3,1) = 0;
         pose_(3,2) = 0;
         pose_(3,3) = 1;
-        std::cout<<pose_<<std::endl;
+        //std::cout<<pose_<<std::endl;
         position[scanid] = pose_;
         
       }
