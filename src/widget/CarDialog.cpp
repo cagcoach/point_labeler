@@ -57,6 +57,7 @@ void CarDialog::discard(){
 }
 
 void CarDialog::continue_(){
+	success=true;
 	emit continueCar(a);
 	close();
 }
