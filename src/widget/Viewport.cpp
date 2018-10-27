@@ -145,6 +145,16 @@ Viewport::~Viewport() {
   bufVisible_.assign(std::vector<uint32_t>());
 }
 
+
+void Viewport::clear() {
+  carsInWorldIdx = -1;
+  autoautos->clear();
+  carsInWorld_.clear();
+  singleScanIdx_=0;
+  updateCarsInWorldMutex.unlock();
+
+
+}
 void Viewport::initPrograms() {
   prgDrawPoints_.attach(GlShader::fromCache(ShaderType::VERTEX_SHADER, "shaders/draw_points.vert"));
   prgDrawPoints_.attach(GlShader::fromCache(ShaderType::FRAGMENT_SHADER, "shaders/passthrough.frag"));
@@ -1803,7 +1813,15 @@ void Viewport::tempAutoAuto(std::shared_ptr<AutoAuto> a, int id){
 }
 
 void Viewport::addAutoAutoToWorld(std::shared_ptr<AutoAuto> a){
-  std::cout<<"ADD2WORLD"<<std::endl;
+  std::string emo;
+  switch(rand() % 5){
+    case 0: emo="\U0001F697"; break; //Automobile
+    case 1: emo="\U0001F693"; break; //Police Car
+    case 2: emo="\U0001F3CE"; break; //Racing Car
+    case 3: emo="\U0001F699"; break; //Recreational Vehicle
+    case 4: emo="\U0001F695"; break; //Taxi
+  }
+  std::cout<<emo<<"  "<<std::flush; 
   carsInWorld_[a] = *(a->getResults()[a->getSelectedCar()]->getGlobalPoints(singleScanIdx_));
   updateAutoAuto();
   emit labelingChanged();

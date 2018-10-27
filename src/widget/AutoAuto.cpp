@@ -548,7 +548,7 @@ std::vector<glow::vec4> AutoAuto::pointStringToGlowVector(const std::string s,Ei
 		outvec.push_back(glow::vec4(e.x(),e.y(),e.z(),1));
 		//std::cout<<e.x()<<","<<e.y()<<","<<e.z()<<std::endl;
 	}
-  std::cout<<pose__<<std::endl;
+  //std::cout<<pose__<<std::endl;
 	return outvec;
 }
 

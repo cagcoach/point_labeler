@@ -268,6 +268,7 @@ void Mainframe::closeEvent(QCloseEvent* event) {
 }
 
 void Mainframe::open() {
+
   if (readerFuture_.valid()) readerFuture_.wait();
 
   if (mChangesSinceLastSave) {
@@ -292,7 +293,8 @@ void Mainframe::open() {
       std::cout << "[ERROR] velodyne or poses.txt missing." << std::endl;
       return;
     }
-
+    
+    ui.mViewportXYZ->clear();
     reader_.initialize(retValue);
     aar_.initialize(retValue,ui.mViewportXYZ->getAutoAutos(),ui.mViewportXYZ->getCars());
 

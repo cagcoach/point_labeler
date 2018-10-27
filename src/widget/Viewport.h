@@ -112,7 +112,7 @@ class Viewport : public QGLWidget {
   std::shared_ptr<std::map<AutoAuto*, std::shared_ptr<AutoAuto>>> getAutoAutos();
   std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> getCars();
   
-
+  void clear();
 
  signals:
   void labelingChanged();

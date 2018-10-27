@@ -14,6 +14,7 @@ void AutoAutoReader::initialize(const QString& directory, std::shared_ptr<std::m
 	autoauto_dir_tmp = base_dir.filePath("autoautos.txt.tmp").toStdString();
 	autoautos = autoautos_;
 	cars = cars_;
+	unknown.clear();
 }
 
 void AutoAutoReader::save(){
