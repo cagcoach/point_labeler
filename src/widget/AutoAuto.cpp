@@ -514,8 +514,8 @@ std::string AutoAuto::pointGlowVectorToString(const std::vector<glow::vec4> v,Ei
 	std::vector<Eigen::Vector4f> ev;
 	for(const auto& p:v){
 		Eigen::Vector4f e;
-		e<<p.x,p.y,p.z,0;
-    std::cout<<e.x()<<","<<e.y()<<","<<e.z()<<std::endl;
+		e<<p.x,p.y,p.z,1;
+    //std::cout<<e.x()<<","<<e.y()<<","<<e.z()<<std::endl;
 		e=pose.inverse()*e*1000;
 		int16_t coords[3];
 		if(e.x()>32767 || e.x()<-32767 ||e.y()>32767 || e.y()<-32767 ||e.z()>32767 || e.z()<-32767){
@@ -546,7 +546,7 @@ std::vector<glow::vec4> AutoAuto::pointStringToGlowVector(const std::string s,Ei
 
 		e=pose__*e/1000.;
 		outvec.push_back(glow::vec4(e.x(),e.y(),e.z(),1));
-		std::cout<<e.x()<<","<<e.y()<<","<<e.z()<<std::endl;
+		//std::cout<<e.x()<<","<<e.y()<<","<<e.z()<<std::endl;
 	}
   std::cout<<pose__<<std::endl;
 	return outvec;

@@ -100,7 +100,7 @@ std::string StaticCar::pointGlowVectorToString(const std::shared_ptr<std::vector
 	std::vector<Eigen::Vector4f> ev;
 	for(const auto& p:(*v)){
 		Eigen::Vector4f e;
-		e<<p.x,p.y,p.z,0;
+		e<<p.x,p.y,p.z,1;
 		e=pose.inverse()*e*1000;
 		int16_t coords[3];
 		if(e.x()>32767 || e.x()<-32767 ||e.y()>32767 || e.y()<-32767 ||e.z()>32767 || e.z()<-32767){

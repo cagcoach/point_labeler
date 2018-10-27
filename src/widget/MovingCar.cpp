@@ -107,7 +107,7 @@ std::string MovingCar::pointGlowVectorToString(const std::shared_ptr<std::vector
 	std::vector<Eigen::Vector4f> ev;
 	for(const auto& p:(*v)){
 		Eigen::Vector4f e;
-		e<<p.x,p.y,p.z,0;
+		e<<p.x,p.y,p.z,1;
 		std::cout<<p.x<<","<<p.y<<","<<p.z<<std::endl;
 		e=pose__.inverse()*e*1000;
 		int16_t coords[3];
