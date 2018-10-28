@@ -38,6 +38,7 @@ private:
 	void closeEvent(QCloseEvent *event);
 	void disconn();
 	bool success=false;
+	void reject();
 };
 
 #endif

@@ -946,6 +946,7 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
 
     repaint();
   } else if (mMode == AUTOAUTO) {
+    
     if (event->buttons() & Qt::LeftButton) {
       if (polygonPoints_.size() > 1) {
         polygonPoints_.clear();
@@ -969,68 +970,111 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
       }
 
     } else if (event->buttons() & Qt::RightButton) {
-      if (polygonPoints_.size() > 2) {
-        // finish polygon and label points.
+      if (event->modifiers() == Qt::ShiftModifier){
+        float x =  2*(event->x()/(float)(width())-0.5);
+        float y =  -2*(event->y()/(float)(height())-0.5);
+        auto mvp = projection_ * view_ * conversion_;
+        bool found=false;
+        for(const auto& ciw:carsInWorld_){
+          auto result = ciw.first->getResults()[ciw.first->getSelectedCar()];
+          auto pose = result->getPosition(singleScanIdx_);
+          Eigen::Vector4f v;
+          v << pose(0,3),pose(1,3),pose(2,3),1;
+          v = mvp*v;
+          v /= v.w();
+          float distance = (x-v.x())*(x-v.x())+(y-v.y())*(y-v.y());
+          if (distance <= 1){
+            for(const auto& p:*(result->getGlobalPoints(singleScanIdx_))){
+              Eigen::Vector4f v;
+              v << p.x,p.y,p.z,1;
+              v = mvp*v;
+              v /= v.w();
+              float distance = (x-v.x())*(x-v.x())+(y-v.y())*(y-v.y());
+              if (distance <= 0.001){
+                found=true;
+                break;
+              }
+            }
+          }
+          if(found) {
+            std::cout << distance <<": "<< x << " " << y <<" / "<<v.x()<<" "<<v.y()<<std::endl;
+            QMessageBox::StandardButton reply;
+            std::string message= "Are you sure you want to delete "+result->getModel()+"?";
+            reply = QMessageBox::question(this, "Remove Car", QString::fromStdString(message),
+                                          QMessageBox::Yes|QMessageBox::No);
+            if (reply == QMessageBox::Yes) {
+              deleteAutoAuto(ciw.first);
+              updateAutoAuto();
+            } 
+            break;
+          };
+        }
 
-        // 1. determine winding: https://blog.element84.com/polygon-winding-post.html
-
-        std::vector<vec2> points = polygonPoints_;
         
-
-        for (uint32_t i = 0; i < points.size(); ++i) {
-          points[i].y = height() - points[i].y;  // flip y.
-        }
-
-        float winding = 0.0f;
-
-        // important: take also last edge into account!
-        for (uint32_t i = 0; i < points.size(); ++i) {
-          const auto& p = points[(i + 1) % points.size()];
-          const auto& q = points[i];
-
-          winding += (p.x - q.x) * (q.y + p.y);
-        }
-
-        // invert  order if CW order.
-        if (winding > 0) std::reverse(points.begin(), points.end());
-
-        //        if (winding > 0) std::cout << "winding: CW" << std::endl;
-        //        else std::cout << "winding: CCW" << std::endl;
-
-        std::vector<Triangle> triangles;
-        std::vector<glow::vec2> tris_verts;
-
-        triangulate(points, triangles);
-
-        //        std::cout << "#triangles: " << triangles.size() << std::endl;
-
-        std::vector<vec3> texContent(3 * 100);
-        for (uint32_t i = 0; i < triangles.size(); ++i) {
-          auto t = triangles[i];
-          texContent[3 * i + 0] = vec3(t.i.x / width(), (height() - t.i.y) / height(), 0);
-          texContent[3 * i + 1] = vec3(t.j.x / width(), (height() - t.j.y) / height(), 0);
-          texContent[3 * i + 2] = vec3(t.k.x / width(), (height() - t.k.y) / height(), 0);
-
-          tris_verts.push_back(vec2(t.i.x, height() - t.i.y));
-          tris_verts.push_back(vec2(t.j.x, height() - t.j.y));
-          tris_verts.push_back(vec2(t.j.x, height() - t.j.y));
-          tris_verts.push_back(vec2(t.k.x, height() - t.k.y));
-          tris_verts.push_back(vec2(t.k.x, height() - t.k.y));
-          tris_verts.push_back(vec2(t.i.x, height() - t.i.y));
-        }
-
-        numTriangles_ = triangles.size();
-        // note: colors are in range [0,1] for FLOAT!
-        texTriangles_.assign(PixelFormat::RGB, PixelType::FLOAT, &texContent[0]);
-        bufTriangles_.assign(tris_verts);
         
-        //QProgressDialog* progress = new QProgressDialog("Matching Cars...", "Abort", 0, cars.size(), this);
-        //progress->setWindowModality(Qt::WindowModal);
-        applyAutoAuto();
-        //delete progress;
+      }else{
+        if (polygonPoints_.size() > 2) {
+          // finish polygon and label points.
 
+          // 1. determine winding: https://blog.element84.com/polygon-winding-post.html
+
+          std::vector<vec2> points = polygonPoints_;
+          
+
+          for (uint32_t i = 0; i < points.size(); ++i) {
+            points[i].y = height() - points[i].y;  // flip y.
+          }
+
+          float winding = 0.0f;
+
+          // important: take also last edge into account!
+          for (uint32_t i = 0; i < points.size(); ++i) {
+            const auto& p = points[(i + 1) % points.size()];
+            const auto& q = points[i];
+
+            winding += (p.x - q.x) * (q.y + p.y);
+          }
+
+          // invert  order if CW order.
+          if (winding > 0) std::reverse(points.begin(), points.end());
+
+          //        if (winding > 0) std::cout << "winding: CW" << std::endl;
+          //        else std::cout << "winding: CCW" << std::endl;
+
+          std::vector<Triangle> triangles;
+          std::vector<glow::vec2> tris_verts;
+
+          triangulate(points, triangles);
+
+          //        std::cout << "#triangles: " << triangles.size() << std::endl;
+
+          std::vector<vec3> texContent(3 * 100);
+          for (uint32_t i = 0; i < triangles.size(); ++i) {
+            auto t = triangles[i];
+            texContent[3 * i + 0] = vec3(t.i.x / width(), (height() - t.i.y) / height(), 0);
+            texContent[3 * i + 1] = vec3(t.j.x / width(), (height() - t.j.y) / height(), 0);
+            texContent[3 * i + 2] = vec3(t.k.x / width(), (height() - t.k.y) / height(), 0);
+
+            tris_verts.push_back(vec2(t.i.x, height() - t.i.y));
+            tris_verts.push_back(vec2(t.j.x, height() - t.j.y));
+            tris_verts.push_back(vec2(t.j.x, height() - t.j.y));
+            tris_verts.push_back(vec2(t.k.x, height() - t.k.y));
+            tris_verts.push_back(vec2(t.k.x, height() - t.k.y));
+            tris_verts.push_back(vec2(t.i.x, height() - t.i.y));
+          }
+
+          numTriangles_ = triangles.size();
+          // note: colors are in range [0,1] for FLOAT!
+          texTriangles_.assign(PixelFormat::RGB, PixelType::FLOAT, &texContent[0]);
+          bufTriangles_.assign(tris_verts);
+          
+          //QProgressDialog* progress = new QProgressDialog("Matching Cars...", "Abort", 0, cars.size(), this);
+          //progress->setWindowModality(Qt::WindowModal);
+          applyAutoAuto();
+          //delete progress;
+
+        }
       }
-
       polygonPoints_.clear();
     }
 

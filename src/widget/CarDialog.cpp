@@ -32,6 +32,11 @@ CarDialog::~CarDialog(){
 	delete mainLayout;
 }
 
+void CarDialog::reject() {
+	std::cout << "reject()"<<std::endl;
+	discard();
+}
+
 void CarDialog::filllist(){
 	auto carvec = a->getResults();
 	for (auto const& car : carvec) {
