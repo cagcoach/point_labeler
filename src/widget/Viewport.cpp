@@ -976,15 +976,23 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
         auto mvp = projection_ * view_ * conversion_;
         bool found=false;
         for(const auto& ciw:carsInWorld_){
-          auto result = ciw.first->getResults()[ciw.first->getSelectedCar()];
-          auto pose = result->getPosition(singleScanIdx_);
+          std::shared_ptr<Car> result;
+          Eigen::Matrix4f pose;
+          try {
+            result = ciw.first->getResults()[ciw.first->getSelectedCar()];
+            pose = result->getPosition(singleScanIdx_);
+          } catch (const std::out_of_range& oor) {
+            continue;
+          }
           Eigen::Vector4f v;
           v << pose(0,3),pose(1,3),pose(2,3),1;
           v = mvp*v;
           v /= v.w();
           float distance = (x-v.x())*(x-v.x())+(y-v.y())*(y-v.y());
           if (distance <= 1){
-            for(const auto& p:*(result->getGlobalPoints(singleScanIdx_))){
+            auto gp = result->getGlobalPoints(singleScanIdx_);
+            if (gp == nullptr) break;
+            for(const auto& p:*(gp)){
               Eigen::Vector4f v;
               v << p.x,p.y,p.z,1;
               v = mvp*v;

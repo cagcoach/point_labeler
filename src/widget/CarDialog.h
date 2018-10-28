@@ -7,6 +7,13 @@
 #include <QDialogButtonBox> 
 #include <QVBoxLayout> 
 
+class CarDialogList : public QListWidget {
+public:
+	CarDialogList(QWidget * parent = 0);
+protected: 
+	void keyPressEvent(QKeyEvent *event);
+};
+
 class CarDialog : public QDialog
 {
 	Q_OBJECT
@@ -30,7 +37,7 @@ private slots:
 public slots:
 	void viewChanged();
 private:
-	QListWidget *carList;
+	CarDialogList *carList;
 	QDialogButtonBox *buttonBox;
 	std::shared_ptr<AutoAuto> a;
 	QVBoxLayout *mainLayout;
@@ -39,6 +46,9 @@ private:
 	void disconn();
 	bool success=false;
 	void reject();
+	void keyPressEvent(QKeyEvent * event);
 };
+
+
 
 #endif

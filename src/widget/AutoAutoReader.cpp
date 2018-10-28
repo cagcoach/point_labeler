@@ -33,6 +33,7 @@ void AutoAutoReader::save(){
 }
 void AutoAutoReader::load(){
 	std::ifstream infile(autoauto_dir.c_str());
+	uint ctr=0;
 	for( std::string line; getline( infile, line ); )
 	{
 	    try{
@@ -43,7 +44,9 @@ void AutoAutoReader::load(){
 			unknown.push_back(line);
 			continue;
 		}
+		ctr++;
 	    // process pair (a,b)
 	}
+	std::cout<<ctr<<" cars loaded successfully"<<std::endl;
 	infile.close();
 }

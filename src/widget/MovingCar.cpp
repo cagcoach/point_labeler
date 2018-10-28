@@ -71,11 +71,17 @@ void MovingCar::setOriginalPoints(std::map<int,std::shared_ptr<std::vector<glow:
 }
 
 std::shared_ptr<std::vector<glow::vec4>> MovingCar::getOriginalPoints(){
-	return originalPoints.at(scan);
+	return getOriginalPoints(scan);
 }
 
 std::shared_ptr<std::vector<glow::vec4>> MovingCar::getOriginalPoints(int scan_){
-	return originalPoints.at(scan_);
+	auto it = originalPoints.find(scan_);
+	if(it!=originalPoints.end()){
+		return it->second;
+	}else{
+		return nullptr;
+	}
+	
 }
 
 void MovingCar::setPointString(std::string ps){

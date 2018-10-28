@@ -2,10 +2,12 @@
 
 #include "CarDialog.h"
 
+
+
 CarDialog::CarDialog(std::shared_ptr<AutoAuto> a_, QWidget* parent,bool more) : a(a_),QDialog(parent){
 	
 	this->setAttribute(Qt::WA_DeleteOnClose);
-	carList = new QListWidget(this);
+	carList = new CarDialogList(this);
 
 	buttonBox = new QDialogButtonBox(QDialogButtonBox::Save
                                      | QDialogButtonBox::Cancel);
@@ -31,6 +33,36 @@ CarDialog::~CarDialog(){
 	delete buttonBox;
 	delete mainLayout;
 }
+
+CarDialogList::CarDialogList(QWidget * parent){
+}
+
+void CarDialogList::keyPressEvent(QKeyEvent *event){
+	event->ignore();
+}
+
+void CarDialog::keyPressEvent(QKeyEvent * event){
+	switch (event->key()){
+    case Qt::Key_W:
+    case Qt::Key_Up:
+        if(carList->currentRow()>0)
+        	carList->setCurrentRow(carList->currentRow()-1); 
+        break;
+    case Qt::Key_S:
+    case Qt::Key_Down:
+    	if(carList->currentRow()<carList->count()-1)
+    		carList->setCurrentRow(carList->currentRow()+1); 
+    	break;
+    case Qt::Key_Escape:
+    	reject();
+    case Qt::Key_Enter:
+    case Qt::Key_Return:
+    	save();
+    default:
+    	event->ignore(); break;
+    }
+}
+
 
 void CarDialog::reject() {
 	std::cout << "reject()"<<std::endl;
