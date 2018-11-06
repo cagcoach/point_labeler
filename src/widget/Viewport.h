@@ -35,6 +35,7 @@
 #include <glow/util/GlCamera.h>
 #include <glow/util/RoSeCamera.h>
 #include "CADCamera.h"
+#include "CADCamera2.h"
 #include "AutoAuto.h"
 #include "Car.h"
 
@@ -201,8 +202,10 @@ class Viewport : public QGLWidget {
 
   std::vector<PointcloudPtr> points_;
   std::vector<LabelsPtr> labels_;
-  glow::RoSeCamera rosecam;
-  CADCamera cadcam;
+  //glow::RoSeCamera rosecam;
+  //CADCamera cadcam;
+  std::shared_ptr<Eigen::Vector4f> cameraRefPt{std::make_shared<Eigen::Vector4f>()};
+  //CADCamera2 cadcam{CameraRefPt};
   std::shared_ptr<glow::GlCamera> mCamera;
   std::map<std::string, std::shared_ptr<glow::GlCamera>> cameras_;
   bool mChangeCamera{false};
@@ -291,7 +294,8 @@ class Viewport : public QGLWidget {
   glow::GlUniform<Eigen::Matrix4f> mvp_inv_t_{"mvp_inv_t", Eigen::Matrix4f::Identity()};
 
   Eigen::Matrix4f view_{Eigen::Matrix4f::Identity()};
-  Eigen::Matrix4f projection_{Eigen::Matrix4f::Identity()};
+  
+  std::shared_ptr<Eigen::Matrix4f> projection_{std::make_shared<Eigen::Matrix4f>(Eigen::Matrix4f::Identity())};
   Eigen::Matrix4f conversion_{glow::RoSe2GL::matrix};
 
   std::map<std::string, bool> drawingOption_;
@@ -345,6 +349,8 @@ class Viewport : public QGLWidget {
 
   int32_t carsInWorldIdx = -1;
   std::mutex updateCarsInWorldMutex;
+
+  void setCameraRefPt(float x, float y);
 
 };
 

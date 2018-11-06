@@ -95,6 +95,8 @@ add_executable(labeler
   src/widget/Viewport.cpp
   src/widget/CADCamera.h
   src/widget/CADCamera.cpp
+  src/widget/CADCamera2.h
+  src/widget/CADCamera2.cpp
   src/widget/KittiReader.cpp
   src/widget/TileSelectorWidget.cpp
   src/widget/waitingspinnerwidget.cpp

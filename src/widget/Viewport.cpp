@@ -130,6 +130,7 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
 
   cameras_["Default"] = std::make_shared<RoSeCamera>();
   cameras_["CAD"] = std::make_shared<CADCamera>();
+  cameras_["CAD2"] = std::make_shared<CADCamera2>(cameraRefPt,projection_,this);
   mCamera = cameras_["Default"];
 
   glow::_CheckGlError(__FILE__, __LINE__);
@@ -655,13 +656,13 @@ void Viewport::resizeGL(int w, int h) {
 
   if (projectionMode_ == CameraProjection::perspective) {
     float fov = radians(45.0f);
-    projection_ = glPerspective(fov, aspect, 0.1f, 2000.0f);
+    *projection_ = glPerspective(fov, aspect, 0.1f, 2000.0f);
   } else {
     float fov = 10.0f;
     if (w <= h)
-      projection_ = glOrthographic(-fov, fov, -fov / aspect, fov / aspect, 0.1f, 2000.0f);
+      *projection_ = glOrthographic(-fov, fov, -fov / aspect, fov / aspect, 0.1f, 2000.0f);
     else
-      projection_ = glOrthographic(-fov * aspect, fov * aspect, -fov, fov, 0.1, 2000.0f);
+      *projection_ = glOrthographic(-fov * aspect, fov * aspect, -fov, fov, 0.1, 2000.0f);
   }
 }
 
@@ -674,7 +675,7 @@ void Viewport::paintGL() {
 
   view_ = mCamera->matrix();
 
-  mvp_ = projection_ * view_ * conversion_;
+  mvp_ = *projection_ * view_ * conversion_;
 
   if (drawingOption_["coordinate axis"]) {
     // coordinateSytem_->pose = Eigen::Matrix4f::Identity();
@@ -825,6 +826,7 @@ void Viewport::wheelEvent(QWheelEvent* event) {
   mChangeCamera = false;
 
   if (event->modifiers() == Qt::ControlModifier || mMode == PAINT || polygonPoints_.empty()) {
+    *cameraRefPt = Eigen::Vector4f(2*event->pos().x()/(float)width()-1,-2*event->pos().y()/(float)height()+1,1,1);
     QPoint numPixels = event->pixelDelta();
     QPoint numDegrees = event->angleDelta() / 8.;
     float delta = 0.0f;
@@ -845,11 +847,110 @@ void Viewport::wheelEvent(QWheelEvent* event) {
   return;
 }
 
+void Viewport::setCameraRefPt(float x, float y){
+  std::vector<glow::vec4> inpoints;
+  //std::cout<<x<<" "<<y<<std::endl;
+  auto mvp = *projection_ * view_ * conversion_;
+
+  for(int rad:{9,27,81,200,300,400}){
+    polygonPoints_.clear();
+    polygonPoints_.push_back(vec2(x+rad, y+rad));
+    polygonPoints_.push_back(vec2(x+rad, y-rad));
+    polygonPoints_.push_back(vec2(x-rad, y-rad));
+    polygonPoints_.push_back(vec2(x-rad, y+rad));
+
+
+    //BEGIN BLACKBOX
+
+
+    std::vector<vec2> points = polygonPoints_;
+    for (uint32_t i = 0; i < points.size(); ++i) {
+      points[i].y = height() - points[i].y;  // flip y.
+    }
+    float winding = 0.0f;
+    // important: take also last edge into account!
+    for (uint32_t i = 0; i < points.size(); ++i) {
+      const auto& p = points[(i + 1) % points.size()];
+      const auto& q = points[i];
+      winding += (p.x - q.x) * (q.y + p.y);
+    }
+    // invert  order if CW order.
+    if (winding > 0) std::reverse(points.begin(), points.end());
+
+    std::vector<Triangle> triangles;
+    std::vector<glow::vec2> tris_verts;
+    triangulate(points, triangles);
+    std::vector<vec3> texContent(3 * 100);
+    for (uint32_t i = 0; i < triangles.size(); ++i) {
+      auto t = triangles[i];
+      texContent[3 * i + 0] = vec3(t.i.x / width(), (height() - t.i.y) / height(), 0);
+      texContent[3 * i + 1] = vec3(t.j.x / width(), (height() - t.j.y) / height(), 0);
+      texContent[3 * i + 2] = vec3(t.k.x / width(), (height() - t.k.y) / height(), 0);
+
+      tris_verts.push_back(vec2(t.i.x, height() - t.i.y));
+      tris_verts.push_back(vec2(t.j.x, height() - t.j.y));
+      tris_verts.push_back(vec2(t.j.x, height() - t.j.y));
+      tris_verts.push_back(vec2(t.k.x, height() - t.k.y));
+      tris_verts.push_back(vec2(t.k.x, height() - t.k.y));
+      tris_verts.push_back(vec2(t.i.x, height() - t.i.y));
+    }
+    numTriangles_ = triangles.size();
+    // note: colors are in range [0,1] for FLOAT!
+    texTriangles_.assign(PixelFormat::RGB, PixelType::FLOAT, &texContent[0]);
+    bufTriangles_.assign(tris_verts);
+
+    //END BLACKBOX
+
+
+    
+    selectPolygon(inpoints);
+    //std::cout<<rad<<std::endl;
+    if(inpoints.size()>0) break;
+
+  }
+
+  Eigen::Vector4f campose = conversion_.inverse() * mCamera->getPosition();
+
+  //std::cout<<campose.x()<<" "<<campose.y()<<" "<<campose.x()<<std::endl;
+  if(inpoints.size()>0){
+  glow::vec4 bestpoint;
+  float bestdist=999999;
+  for(auto& i:inpoints){
+    Eigen::Vector4f p_;
+    p_ << i.x,i.y,i.z,1;
+    p_-=campose;
+    
+    float dist = sqrt(p_.x()*p_.x()+p_.y()*p_.y()+p_.z()*p_.z());
+    if (dist<bestdist){
+      bestdist=dist;
+      bestpoint = i;
+    }
+  }
+  //std::cout<<"bestpoint: "<<bestpoint.x<<" "<<bestpoint.y<<" "<<bestpoint.z<<std::endl;
+    Eigen::Vector4f bp;
+    bp << bestpoint.x,bestpoint.y,bestpoint.z,1;
+    bp = mvp * bp;
+    //std::cout<<bp.x()/bp.w()<<" "<<bp.y()/bp.w()<<" "<<bp.z()/bp.w()<<" "<<bp.w()/bp.w()<<" "<<std::endl;
+    *cameraRefPt = bp/bp.w();
+  }else{
+    Eigen::Vector4f cp = mCamera->getPosition();
+    *cameraRefPt = Eigen::Vector4f::Zero();
+  }
+  polygonPoints_.clear();
+
+}
+
 void Viewport::mousePressEvent(QMouseEvent* event) {
   // if camera consumes the signal, simply return. // here we could also include some remapping.
   mChangeCamera = false;
+  auto mvp = *projection_ * view_ * conversion_;
 
   if (event->modifiers() == Qt::ControlModifier) {
+    setCameraRefPt(event->x(), event->y());
+
+    //mCamera->lookAt();
+    
+
     if (mCamera->mousePressed(event->windowPos().x(), event->windowPos().y(), resolveMouseButtonFlip(event->buttons()),
                               resolveKeyboardModifier(event->modifiers()))) {
       if (pressedkeys.empty()) {
@@ -973,7 +1074,7 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
       if (event->modifiers() == Qt::ShiftModifier){
         float x =  2*(event->x()/(float)(width())-0.5);
         float y =  -2*(event->y()/(float)(height())-0.5);
-        auto mvp = projection_ * view_ * conversion_;
+        
         bool found=false;
         for(const auto& ciw:carsInWorld_){
           std::shared_ptr<Car> result;
@@ -1323,7 +1424,7 @@ void Viewport::labelPoints(int32_t x, int32_t y, float radius, uint32_t new_labe
   prgUpdateLabels_.setUniform(GlUniform<float>("planeThreshold", planeThreshold));
   prgUpdateLabels_.setUniform(GlUniform<float>("planeDirection", planeDirection_));
 
-  mvp_ = projection_ * mCamera->matrix() * conversion_;
+  mvp_ = *projection_ * mCamera->matrix() * conversion_;
   prgUpdateLabels_.setUniform(mvp_);
 
   if (mMode == Viewport::PAINT) prgUpdateLabels_.setUniform(GlUniform<int32_t>("labelingMode", 0));
@@ -1701,7 +1802,7 @@ void Viewport::selectPolygon(std::vector<glow::vec4>& inpoints) {
   prgSelectPoly_.setUniform(GlUniform<float>("planeThreshold", planeThreshold));
   prgSelectPoly_.setUniform(GlUniform<float>("planeDirection", planeDirection_));
 
-  mvp_ = projection_ * mCamera->matrix() * conversion_;
+  mvp_ = *projection_ * mCamera->matrix() * conversion_;
   prgSelectPoly_.setUniform(mvp_);
   prgSelectPoly_.setUniform(GlUniform<int32_t>("numTriangles", numTriangles_));
   
@@ -1763,8 +1864,8 @@ void Viewport::applyAutoAuto() {
   //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 
   //inverse projection Matrix
-  Eigen::Matrix4f mvpinv_ = conversion_.inverse() * mCamera->matrix().inverse() * projection_.inverse();
-  Eigen::Matrix4f mvp = projection_ * mCamera->matrix() * conversion_;
+  Eigen::Matrix4f mvpinv_ = conversion_.inverse() * mCamera->matrix().inverse() * projection_->inverse();
+  Eigen::Matrix4f mvp = *projection_ * mCamera->matrix() * conversion_;
   //std::cout<<"MVPinv\n"<<mvpinv_<<std::endl;
   //std::cout<<"MVP\n"<<mvp<<std::endl;
   //std::cout<< mvpinv_ * mvp << std::endl;
@@ -1922,7 +2023,7 @@ std::shared_ptr<std::map<std::string, std::shared_ptr<Car>>> Viewport::getCars()
 
 void Viewport::follow(const std::vector<glow::vec4>& pts_, const Eigen::Vector4f dir_, const Eigen::Vector4f center_){
   Eigen::Vector3f f; f<<dir_.x(),dir_.y(),dir_.z();
-  //Eigen::Matrix4f mvp = projection_ * view_ * conversion_;
+  //Eigen::Matrix4f mvp = *projection_ * view_ * conversion_;
   auto pointcloud = std::make_shared<std::vector<glow::vec4>>();
   std::vector<double> pointcloud_;
   std::shared_ptr<MovingCar> mcar = std::make_shared<MovingCar>("_generated",pointcloud);
