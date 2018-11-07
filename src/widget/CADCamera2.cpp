@@ -1,6 +1,7 @@
 #include "CADCamera2.h"
 
 #include <iostream>
+#include <QCursor>
 
 CADCamera2::CADCamera2(std::shared_ptr<Eigen::Vector4f> refpt_,std::shared_ptr<Eigen::Matrix4f> projection_, QWidget* refwidget_){
   refpt = refpt_;
@@ -132,7 +133,7 @@ bool CADCamera2::mousePressed(float x, float y, MouseButton btn, KeyboardModifie
   startTime_ = std::chrono::system_clock::now();
   startdrag_ = true;
   //std::cout<<x<<" "<<y<<" "<<std::endl;
-  
+ 
   if(*refpt!=Eigen::Vector4f::Zero()){
     refp<<2*x/(float)refwidget->width()-1,-2*y/(float)refwidget->height()+1,refpt->z(),1;
     refp = projection->inverse()*refp;
@@ -143,11 +144,39 @@ bool CADCamera2::mousePressed(float x, float y, MouseButton btn, KeyboardModifie
     my_factor = (startcy_ > 50 ? 25 : (startcy_ > 1 ? startcy_ * 0.5 : .5))/refwidget->height();
   }
 
+
+  if (btn == MouseButton::MiddleButton || btn == MouseButton::RightButton){
+    refwidget->setCursor(Qt::BlankCursor);
+    virtCursor = refwidget->cursor().pos();
+    std::cout<<(int)btn<<std::endl;
+    updateCursorLater=true;
+  }
   // std::cout<<static_cast<std::underlying_type<MouseButton>::type>(btn)<<std::endl;
   return true;
 }
 
-bool CADCamera2::mouseReleased(float x, float y, MouseButton btn, KeyboardModifier modifier) { return true; }
+bool CADCamera2::mouseReleased(float x, float y, MouseButton btn, KeyboardModifier modifier) {  
+  refwidget->setCursor(Qt::ArrowCursor); 
+  std::cout<<(int)btn<<std::endl;
+  if(updateCursorLater){
+    QPoint VPposition=refwidget->mapToGlobal(QPoint(0,0));
+    if (virtCursor.x()<VPposition.x()){
+      virtCursor.setX (VPposition.x());
+    } else if(virtCursor.x()>VPposition.x()+refwidget->width()){
+      virtCursor.setX (VPposition.x()+refwidget->width());
+    }
+
+    if (virtCursor.y()<VPposition.y()){
+      virtCursor.setY (VPposition.y());
+    } else if(virtCursor.y()>VPposition.y()+refwidget->height()){
+      virtCursor.setY (VPposition.y()+refwidget->height());
+    }
+
+    refwidget->cursor().setPos(virtCursor);
+    updateCursorLater=false;
+  }
+  return true; 
+}
 
 void CADCamera2::translate(float forward, float up, float sideways) {
   // forward = -z, sideways = x , up = y. Remember: inverse of yaw is applied, i.e., we have to apply yaw (?)
@@ -215,9 +244,11 @@ bool CADCamera2::mouseMoved(float x, float y, MouseButton btn, KeyboardModifier 
     //y_ = startcy_ + up * upfactor;
     //z_ = startcz_ - (sideways * s - forward * c * (-1)) * factor;
 
-    x_ = startcx_ + (sideways * c - forward * s) * my_factor;
-    y_ = startcy_ + up * my_factor;
-    z_ = startcz_ - (sideways * s - forward * c * (-1)) * my_factor;
+    x_ += (sideways * c - forward * s) * my_factor;
+    y_ += up * my_factor;
+    z_ -= (sideways * s - forward * c * (-1)) * my_factor;
+    virtCursor+=QPoint(dx/2,dy/2);
+    refwidget->cursor().setPos(refwidget->mapToGlobal(QPoint(startx_,starty_)));
 
     //} else if (btn == MouseButton::LeftButton) {
 
@@ -239,8 +270,8 @@ bool CADCamera2::mouseMoved(float x, float y, MouseButton btn, KeyboardModifier 
     y_ += up1-up;
     z_ += -(sideways1 * s) + (forward1 * c) - (forward * c);
 
-    yaw_ = startyaw_ - FREE_TURN_SENSITIVITY * dx;
-    pitch_ = startpitch_ - LOOK_SENSITIVITY * dy;
+    yaw_ -= FREE_TURN_SENSITIVITY * dx;
+    pitch_ -= LOOK_SENSITIVITY * dy;
 
     if (pitch_ < -M_PI_2) pitch_ = -M_PI_2;
     if (pitch_ > M_PI_2) pitch_ = M_PI_2;
@@ -257,6 +288,8 @@ bool CADCamera2::mouseMoved(float x, float y, MouseButton btn, KeyboardModifier 
     x_ -= (sideways1 * c) + (forward1 * s) - (forward * s);
     y_ -= up1-up;
     z_ -= -(sideways1 * s) + (forward1 * c) - (forward * c);
+
+    refwidget->cursor().setPos(refwidget->mapToGlobal(QPoint(startx_,starty_)));
 
   }
 

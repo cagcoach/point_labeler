@@ -24,8 +24,15 @@ CarDialog::CarDialog(std::shared_ptr<AutoAuto> a_, QWidget* parent,bool more) : 
     mainLayout->addWidget(buttonBox);
     filllist();
 
+	
     setLayout(mainLayout);
+
+    auto parentpos= parent->mapToGlobal(QPoint(parent->frameGeometry().x(),frameGeometry().y()));
+
     setWindowTitle(tr("Select Car"));
+    this->adjustSize();
+    this->move(parentpos.x()+parent->frameGeometry().width()-this->frameGeometry().width()+20,parentpos.y()+parent->frameGeometry().height()-this->frameGeometry().height()+20);
+
 }
 
 CarDialog::~CarDialog(){

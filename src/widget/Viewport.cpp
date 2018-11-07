@@ -946,6 +946,7 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
   auto mvp = *projection_ * view_ * conversion_;
 
   if (event->modifiers() == Qt::ControlModifier) {
+
     setCameraRefPt(event->x(), event->y());
 
     //mCamera->lookAt();
@@ -1197,6 +1198,7 @@ void Viewport::mousePressEvent(QMouseEvent* event) {
 
 void Viewport::mouseReleaseEvent(QMouseEvent* event) {
   // if camera consumes the signal, simply return. // here we could also include some remapping.
+  
   if (mChangeCamera) {
     pressedkeys.erase(Qt::Key_F25);  // abuse F25 for mouse events
     if (pressedkeys.empty()) {
@@ -1331,6 +1333,7 @@ void Viewport::keyPressEvent(QKeyEvent* event) {
     case Qt::Key_A:
     case Qt::Key_S:
     case Qt::Key_D:
+    {
 
       if (event->isAutoRepeat()) return;
       //      std::cout << event->key() << std::endl;
@@ -1350,6 +1353,7 @@ void Viewport::keyPressEvent(QKeyEvent* event) {
         event->ignore();
       };
       return;
+    }
   }
   // handle event by parent:
   //  std::cout << event->key() << std::endl;
@@ -1363,6 +1367,7 @@ void Viewport::keyReleaseEvent(QKeyEvent* event) {
     case Qt::Key_A:
     case Qt::Key_S:
     case Qt::Key_D:
+    {
       if (event->isAutoRepeat()) return;
       pressedkeys.erase(event->key());
       if (pressedkeys.empty()) {
@@ -1375,6 +1380,7 @@ void Viewport::keyReleaseEvent(QKeyEvent* event) {
         event->ignore();
       };
       return;
+    }
   }
   event->ignore();
   /*std::cout << "myset contains:";

@@ -112,6 +112,8 @@ class CADCamera2 : public glow::GlCamera {
 
   float my_factor;
   Eigen::Vector4f refp;
+  QPoint virtCursor;
+  bool updateCursorLater{false};
 
 };
 
