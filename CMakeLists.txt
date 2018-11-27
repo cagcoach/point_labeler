@@ -74,6 +74,7 @@ COMPILE_SHADERS(${VIZ_SHADER_SRC}
   src/shaders/select_poly.vert
   src/shaders/select_box.vert
   src/shaders/average_heightmap.frag
+  src/shaders/draw_plane.geom
 )
 
 add_executable(labeler 
