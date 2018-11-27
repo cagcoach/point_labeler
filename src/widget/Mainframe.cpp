@@ -198,6 +198,20 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
     ui.mViewportXYZ->setCameraProjection(Viewport::CameraProjection::orthographic);
   });
 
+
+  connect(ui.actionAbout_Pointlabeler, &QAction::triggered, [this]() {
+    QMessageBox::about(this, "Pointlabeler", 
+       QString("<h1>Pointlabeler</h1>")
+      +QString("<p>")
+      +QString("Jens Behley, University Bonn<br />")
+      +QString("Benjamin Ruppik, University Bonn<br />")
+      +QString("Christian Grund, University Bonn")
+      +QString("</p>")
+      +QString("\n")
+      +QString("<p>Build Date:<br />") 
+      +QString(__DATE__) + QString(" ") + QString(__TIME__)+ QString("</p>"));
+  });
+
   /** load labels and colors **/
   std::map<uint32_t, glow::GlColor> label_colors;
 

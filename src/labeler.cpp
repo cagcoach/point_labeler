@@ -20,6 +20,7 @@ void handler(int sig) {
 int main(int argc, char** argv) {
   signal(SIGSEGV, handler);
   QApplication app(argc, argv);
+  app.setWindowIcon(QIcon("../assets/icon.png"));
 
   Mainframe frame;
   frame.show();
