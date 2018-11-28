@@ -107,6 +107,7 @@ Viewport::Viewport(QWidget* parent, Qt::WindowFlags f)
   drawingOption_["draw heightmap"] = false;
   drawingOption_["draw triangles"] = false;
   drawingOption_["show plane"] = true;
+  drawingOption_["show plane extra"] = true;
 
   texLabelColors_.setMinifyingOperation(TexRectMinOp::NEAREST);
   texLabelColors_.setMagnifyingOperation(TexRectMagOp::NEAREST);
@@ -730,6 +731,16 @@ void Viewport::paintGL() {
     prgDrawPoints_.setUniform(GlUniform<float>("planeThresholdNormal", planeThresholdNormal_));
     prgDrawPoints_.setUniform(GlUniform<float>("planeDirectionNormal", planeDirectionNormal_));
     //    prgDrawPoints_.setUniform(GlUniform<bool>("carAsBase", drawingOption_["carAsBase"]));
+    
+    prgDrawPoints_.setUniform(GlUniform<bool>("planeRemovalNormal_extra", planeRemovalNormal_extra_));
+    prgDrawPoints_.setUniform(GlUniform<Eigen::Vector3f>("planeNormal_extra", planeNormal_extra_));
+    prgDrawPoints_.setUniform(GlUniform<float>("planeThresholdNormal_extra", planeThresholdNormal_extra_));
+    prgDrawPoints_.setUniform(GlUniform<float>("planeDirectionNormal_extra", planeDirectionNormal_extra_));
+
+    prgDrawPoints_.setUniform(GlUniform<bool>("remissionRemoval", remissionRemoval_));
+    prgDrawPoints_.setUniform(GlUniform<float>("remissionUpper", remissionUpper_));
+    prgDrawPoints_.setUniform(GlUniform<float>("remissionLower", remissionLower_));
+     
     Eigen::Matrix4f plane_pose = Eigen::Matrix4f::Identity();
     plane_pose(0, 3) = tilePos_.x;
     plane_pose(1, 3) = tilePos_.y;
@@ -794,8 +805,44 @@ void Viewport::paintGL() {
     prgDrawPlane_.setUniform(GlUniform<float>("planeThresholdNormal", planeThresholdNormal_));
     prgDrawPlane_.setUniform(GlUniform<float>("planeDirectionNormal", planeDirectionNormal_));
     prgDrawPlane_.setUniform(GlUniform<Eigen::Vector3f>("planeNormal", planeNormal_));
-    //    prgDrawPoints_.setUniform(GlUniform<bool>("carAsBase", drawingOption_["carAsBase"]));
     Eigen::Matrix4f plane_pose = Eigen::Matrix4f::Identity();
+
+    // First plane in blue
+    Eigen::Vector4f plane_color(0, 0, 1, 0.25);
+    prgDrawPlane_.setUniform(GlUniform<Eigen::Vector4f>("plane_color", plane_color));
+
+    plane_pose(0, 3) = tilePos_.x;
+    plane_pose(1, 3) = tilePos_.y;
+    if (points_.size() > 0) plane_pose(2, 3) = points_[0]->pose(2, 3);
+    if (drawingOption_["carAsBase"] && points_.size() > singleScanIdx_) {
+      plane_pose = points_[singleScanIdx_]->pose;
+      //      plane_pose.col(3) = points_[singleScanIdx_]->pose.col(3);
+    }
+
+    prgDrawPlane_.setUniform(GlUniform<Eigen::Matrix4f>("plane_pose", plane_pose));
+    glDrawArrays(GL_POINTS, 0, 1);
+
+    glDisable(GL_BLEND);
+  }
+
+  if (planeRemovalNormal_extra_ && drawingOption_["show plane extra"]) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  // FIXME: state changed.
+
+    ScopedBinder<GlProgram> program_binder(prgDrawPlane_);
+    ScopedBinder<GlVertexArray> vao_binder(vao_no_points_);
+
+    prgDrawPlane_.setUniform(mvp_);
+
+    prgDrawPlane_.setUniform(GlUniform<bool>("planeRemovalNormal", planeRemovalNormal_extra_));
+    prgDrawPlane_.setUniform(GlUniform<float>("planeThresholdNormal", planeThresholdNormal_extra_));
+    prgDrawPlane_.setUniform(GlUniform<float>("planeDirectionNormal", planeDirectionNormal_extra_));
+    prgDrawPlane_.setUniform(GlUniform<Eigen::Vector3f>("planeNormal", planeNormal_extra_));
+    Eigen::Matrix4f plane_pose = Eigen::Matrix4f::Identity();
+
+    // Extra plane in green
+    Eigen::Vector4f plane_color(0, 1, 0, 0.25);
+    prgDrawPlane_.setUniform(GlUniform<Eigen::Vector4f>("plane_color", plane_color));
 
     plane_pose(0, 3) = tilePos_.x;
     plane_pose(1, 3) = tilePos_.y;
@@ -1535,6 +1582,15 @@ void Viewport::labelPoints(int32_t x, int32_t y, float radius, uint32_t new_labe
   prgUpdateLabels_.setUniform(GlUniform<float>("planeThresholdNormal", planeThresholdNormal_));
   prgUpdateLabels_.setUniform(GlUniform<float>("planeDirectionNormal", planeDirectionNormal_));
 
+  prgUpdateLabels_.setUniform(GlUniform<bool>("planeRemovalNormal_extra", planeRemovalNormal_extra_));
+  prgUpdateLabels_.setUniform(GlUniform<Eigen::Vector3f>("planeNormal_extra", planeNormal_extra_));
+  prgUpdateLabels_.setUniform(GlUniform<float>("planeThresholdNormal_extra", planeThresholdNormal_extra_));
+  prgUpdateLabels_.setUniform(GlUniform<float>("planeDirectionNormal_extra", planeDirectionNormal_extra_));
+
+  prgUpdateLabels_.setUniform(GlUniform<bool>("remissionRemoval", remissionRemoval_));
+  prgUpdateLabels_.setUniform(GlUniform<float>("remissionUpper", remissionUpper_));
+  prgUpdateLabels_.setUniform(GlUniform<float>("remissionLower", remissionLower_));
+
   Eigen::Matrix4f plane_pose = Eigen::Matrix4f::Identity();
   plane_pose(0, 3) = tilePos_.x;
   plane_pose(1, 3) = tilePos_.y;
@@ -1792,6 +1848,11 @@ void Viewport::setPlaneRemovalNormal(bool value) {
   updateGL();
 }
 
+void Viewport::setPlaneRemovalNormal_extra(bool value) {
+  planeRemovalNormal_extra_ = value;
+  updateGL();
+}
+
 const double PI = std::acos(-1);
 void Viewport::setPlaneRemovalNormalParams(float threshold, float A1, float A2, float A3, float direction) {
   planeThresholdNormal_ = threshold;
@@ -1836,6 +1897,46 @@ void Viewport::setPlaneRemovalNormalParams(float threshold, float A1, float A2, 
   //  planeNormal_[2] = normal_vect[2];
   planeNormal_ = n;  // normal_vect.head(3);
   planeDirectionNormal_ = direction;
+  updateGL();
+}
+
+void Viewport::setPlaneRemovalNormalParams_extra(float threshold, float A1, float A2, float A3, float direction) {
+  planeThresholdNormal_extra_ = threshold;
+
+  float theta = A1 * PI / 180;
+  float phi = A2 * PI / 180; // increase phi by 90° to have the second plane orthogonal to the first
+
+  float a = std::tan(theta);
+  float b = std::tan(phi);
+  
+  // Extra plane should be turned in different directions with the parameters
+  Eigen::Vector3f n(a, 1, b);
+  n.normalize();
+
+  //  std::cout << "rotation matrix: " << std::endl << rotX * rotY * rotZ << std::endl;
+  //  std::cout << "normal_vect: " << normal_vect << std::endl;
+
+  //  planeNormal_[0] = normal_vect[0];
+  //  planeNormal_[1] = normal_vect[1];
+  //  planeNormal_[2] = normal_vect[2];
+
+  planeNormal_extra_ = n;  // normal_vect.head(3);
+  planeDirectionNormal_extra_ = direction;
+  updateGL();
+}
+
+// ------------------------------------------
+// Remission
+// ------------------------------------------
+
+void Viewport::setRemissionRemoval(bool value) {
+  remissionRemoval_ = value;
+  updateGL();
+}
+
+void Viewport::setRemissionParams(float upper, float lower) {
+  remissionUpper_ = upper;
+  remissionLower_ = lower;
   updateGL();
 }
 

@@ -70,9 +70,6 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
   //  connect(ui.btnFilter, &QCheckBox::toggled, [this](bool value) { updateFiltering(value); });
   connect(ui.actionFilter, &QAction::toggled, [this](bool value) { updateFiltering(value); });
 
-  connect(ui.chkShowRemission, &QCheckBox::toggled,
-          [this](bool value) { ui.mViewportXYZ->setDrawingOption("remission", value); });
-
   connect(ui.chkRemoveGround, &QCheckBox::toggled, [this](bool value) { ui.mViewportXYZ->setGroundRemoval(value); });
   connect(ui.spinGroundThreshold, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),
           [this](double value) { ui.mViewportXYZ->setGroundThreshold(value); });
@@ -124,56 +121,15 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
   });
 
   connect(&mSaveTimer_, SIGNAL(timeout()), this, SLOT(save()));
-  // ------------------------------------------
-  // Removal with plane in coordinate directions
-  // ------------------------------------------
 
-  // Checkbox for removal of points in x, y or z-direction
-  //  connect(ui.chkPlaneRemoval, &QCheckBox::toggled, [this](bool value) { ui.mViewportXYZ->setPlaneRemoval(value); });
-  //
-  //  connect(ui.sldPlaneThreshold, &QSlider::valueChanged, [this]() {
-  //    int32_t dim = (ui.rdoPlaneX->isChecked()) ? 0 : (ui.rdoPlaneY->isChecked() ? 1 : 2);
-  //    ui.mViewportXYZ->setPlaneRemovalParams(ui.sldPlaneThreshold->value() / 100.0f, dim,
-  //                                           ui.rdoPlaneBelow->isChecked() ? -1.0f : 1.0f);
-  //  });
-  //
-  //  // Radio buttons to select coordinate direction
-  //  connect(ui.rdoPlaneX, &QRadioButton::released, [this]() {
-  //    ui.rdoPlaneY->setChecked(false);
-  //    ui.rdoPlaneZ->setChecked(false);
-  //    ui.mViewportXYZ->setPlaneRemovalParams(ui.sldPlaneThreshold->value() / 100.0f, 0,
-  //                                           ui.rdoPlaneBelow->isChecked() ? -1.0f : 1.0f);
-  //  });
-  //
-  //  connect(ui.rdoPlaneY, &QRadioButton::released, [this]() {
-  //    ui.rdoPlaneX->setChecked(false);
-  //    ui.rdoPlaneZ->setChecked(false);
-  //    ui.mViewportXYZ->setPlaneRemovalParams(ui.sldPlaneThreshold->value() / 100.0f, 1,
-  //                                           ui.rdoPlaneBelow->isChecked() ? -1.0f : 1.0f);
-  //  });
-  //
-  //  connect(ui.rdoPlaneZ, &QRadioButton::released, [this]() {
-  //    ui.rdoPlaneX->setChecked(false);
-  //    ui.rdoPlaneY->setChecked(false);
-  //    ui.mViewportXYZ->setPlaneRemovalParams(ui.sldPlaneThreshold->value() / 100.0f, 2,
-  //                                           ui.rdoPlaneBelow->isChecked() ? -1.0f : 1.0f);
-  //  });
-  //
-  //  // Radio buttons to select orientation
-  //  connect(ui.rdoPlaneAbove, &QRadioButton::released, [this]() {
-  //    ui.rdoPlaneBelow->setChecked(false);
-  //    int32_t dim = (ui.rdoPlaneX->isChecked()) ? 0 : (ui.rdoPlaneY->isChecked() ? 1 : 2);
-  //    ui.mViewportXYZ->setPlaneRemovalParams(ui.sldPlaneThreshold->value() / 100.0f, dim, 1.0f);
-  //  });
-  //
-  //  connect(ui.rdoPlaneBelow, &QRadioButton::released, [this]() {
-  //    ui.rdoPlaneAbove->setChecked(false);
-  //    int32_t dim = (ui.rdoPlaneX->isChecked()) ? 0 : (ui.rdoPlaneY->isChecked() ? 1 : 2);
-  //    ui.mViewportXYZ->setPlaneRemovalParams(ui.sldPlaneThreshold->value() / 100.0f, dim, -1.0f);
-  //  });
+  ui.ShowScanRangeTools->setVisible(ui.chkShowScanRange->isChecked());
 
   connect(ui.chkShowScanRange, &QCheckBox::toggled,
-          [this](bool value) { ui.mViewportXYZ->setDrawingOption("show scan range", value); });
+          [this](bool value) { ui.mViewportXYZ->setDrawingOption("show scan range", value); 
+          ui.ShowScanRangeTools->setVisible(value);
+        });
+
+
   connect(ui.spinRangeBegin, static_cast<void (QSpinBox::*)(int32_t)>(&QSpinBox::valueChanged),
           [this](int32_t value) { ui.mViewportXYZ->setScanRange(value, ui.spinRangeEnd->value()); });
   connect(ui.spinRangeEnd, static_cast<void (QSpinBox::*)(int32_t)>(&QSpinBox::valueChanged),
@@ -183,9 +139,19 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
   // Removal with plane in arbitrary normal direction
   // ------------------------------------------
 
+  // Button to reset parameters
+  connect(ui.btnReset, &QPushButton::released, [this](){
+    ui.sldPlaneThresholdNormal->setValue(0);
+    ui.sldPlaneNormalA1->setValue(0);
+    ui.sldPlaneNormalA2->setValue(0);
+  });
+
   // Checkbox for removal in arbitrary normal direction
+  ui.PlaneRemovalNormalTools->setVisible(ui.chkPlaneRemovalNormal->isChecked());
   connect(ui.chkPlaneRemovalNormal, &QCheckBox::toggled,
-          [this](bool value) { ui.mViewportXYZ->setPlaneRemovalNormal(value); });
+          [this](bool value) { ui.mViewportXYZ->setPlaneRemovalNormal(value); 
+          ui.PlaneRemovalNormalTools->setVisible(value);
+        });
 
   connect(ui.sldPlaneThresholdNormal, &QSlider::valueChanged, [this]() {
     ui.mViewportXYZ->setPlaneRemovalNormalParams(
@@ -226,6 +192,86 @@ Mainframe::Mainframe() : mChangesSinceLastSave(false) {
 
   connect(ui.chkShowPlane, &QCheckBox::toggled,
           [this](bool value) { ui.mViewportXYZ->setDrawingOption("show plane", value); });
+
+  // ------------------------------------------
+  // Extra plane
+  // ------------------------------------------
+
+  // Button to reset parameters
+  connect(ui.btnReset_extra, &QPushButton::released, [this](){
+    ui.sldPlaneThresholdNormal_extra->setValue(0);
+    ui.sldPlaneNormalA1_extra->setValue(0);
+    ui.sldPlaneNormalA2_extra->setValue(0);
+  });
+
+  // Checkbox for removal in arbitrary normal direction
+  ui.PlaneRemovalNormal_extraTools->setVisible(ui.chkPlaneRemovalNormal_extra->isChecked());
+  connect(ui.chkPlaneRemovalNormal_extra, &QCheckBox::toggled,
+          [this](bool value) { 
+            ui.mViewportXYZ->setPlaneRemovalNormal_extra(value); 
+            ui.PlaneRemovalNormal_extraTools->setVisible(value);
+
+          });
+
+  connect(ui.sldPlaneThresholdNormal_extra, &QSlider::valueChanged, [this]() {
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(
+        ui.sldPlaneThresholdNormal_extra->value() / 100.0f, ui.sldPlaneNormalA1_extra->value() / 8.0f,
+        ui.sldPlaneNormalA2_extra->value() / 4.0f, 0, ui.rdoPlaneBelowNormal_extra->isChecked() ? -1.0f : 1.0f);
+  });
+
+  // Sliders to select normal parameters
+  connect(ui.sldPlaneNormalA1_extra, &QSlider::valueChanged, [this]() {
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(
+        ui.sldPlaneThresholdNormal_extra->value() / 100.0f, ui.sldPlaneNormalA1_extra->value() / 8.0f,
+        ui.sldPlaneNormalA2_extra->value() / 4.0f, 0, ui.rdoPlaneBelowNormal_extra->isChecked() ? -1.0f : 1.0f);
+  });
+
+  connect(ui.sldPlaneNormalA2_extra, &QSlider::valueChanged, [this]() {
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(
+        ui.sldPlaneThresholdNormal_extra->value() / 100.0f, ui.sldPlaneNormalA1_extra->value() / 8.0f,
+        ui.sldPlaneNormalA2_extra->value() / 4.0f, 0, ui.rdoPlaneBelowNormal_extra->isChecked() ? -1.0f : 1.0f);
+  });
+
+  // Radio buttons to select orientation
+  connect(ui.rdoPlaneAboveNormal_extra, &QRadioButton::released, [this]() {
+    ui.rdoPlaneBelowNormal_extra->setChecked(false);
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(ui.sldPlaneThresholdNormal_extra->value() / 100.0f,
+                                                       ui.sldPlaneNormalA1_extra->value() / 8.0f,
+                                                       ui.sldPlaneNormalA2_extra->value() / 8.0f, 0, 1.0f);
+  });
+
+  connect(ui.rdoPlaneBelowNormal_extra, &QRadioButton::released, [this]() {
+    ui.rdoPlaneAboveNormal_extra->setChecked(false);
+    ui.mViewportXYZ->setPlaneRemovalNormalParams_extra(ui.sldPlaneThresholdNormal_extra->value() / 100.0f,
+                                                       ui.sldPlaneNormalA1_extra->value() / 8.0f,
+                                                       ui.sldPlaneNormalA2_extra->value() / 8.0f, 0, -1.0f);
+  });
+
+  connect(ui.chkShowPlane_extra, &QCheckBox::toggled,
+          [this](bool value) { ui.mViewportXYZ->setDrawingOption("show plane extra", value); });
+
+  // ------------------------------------------
+  // Remission
+  // ------------------------------------------
+
+  connect(ui.chkShowRemission, &QCheckBox::toggled,
+          [this](bool value) { ui.mViewportXYZ->setDrawingOption("remission", value); });
+
+  // Checkbox for filtering remission values
+  ui.RemissionThresholdTools->setVisible(ui.chkRemissionThreshold->isChecked());
+  connect(ui.chkRemissionThreshold, &QCheckBox::toggled,
+          [this](bool value) { ui.mViewportXYZ->setRemissionRemoval(value);
+          ui.RemissionThresholdTools->setVisible(value);
+ });
+
+  connect(ui.spinRemissionUpper, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),
+          [this](double value) { ui.mViewportXYZ->setRemissionParams(value / 100.0f,
+                                                                     ui.spinRemissionLower->value() / 100.0f); });
+
+  connect(ui.spinRemissionLower, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),
+          [this](double value) { ui.mViewportXYZ->setRemissionParams(ui.spinRemissionUpper->value() / 100.0f,
+                                                                     value / 100.0f); });
+
 
   // ------------------------------------------
   // Camera Projection
@@ -791,15 +837,23 @@ void Mainframe::readConfig() {
     if (tokens[0] == "camera") {
       std::string value = trim(tokens[1]);
       auto cameras = ui.mViewportXYZ->getCameraNames();
+
       bool found = false;
       for (auto name : cameras) {
-        if (name == value) ui.mViewportXYZ->setCameraByName(name);
+        if (name == value){
+            ui.mViewportXYZ->setCameraByName(name);
+            found = true;
+        }
       }
       if (found) {
         std::cout << "-- Setting 'camera' to " << value << std::endl;
       } else {
         std::cout << "-- [ERROR] Could not set 'camera' to " << value << ". Undefined camera. Using default."
                   << std::endl;
+        std::cout << "The following cameras are available:" << std::endl;    
+        for(size_t i = 0; i < cameras.size(); i++){
+          std::cout << cameras[i] << std::endl;
+        }
       }
     }
     if (tokens[0] == "protect_labels") {
@@ -949,6 +1003,23 @@ void Mainframe::keyPressEvent(QKeyEvent* event) {
     case Qt::Key_R:
       ui.chkRemoveGround->toggle();
       return;
+
+    case Qt::Key_T:
+      ui.chkPlaneRemovalNormal->toggle();
+      return;
+
+    case Qt::Key_G:
+      ui.chkPlaneRemovalNormal_extra->toggle();
+      return;
+
+    case Qt::Key_P:
+      ui.mViewportXYZ->setCameraProjection(Viewport::CameraProjection::perspective);
+      return;
+
+    case Qt::Key_L:
+      ui.mViewportXYZ->setCameraProjection(Viewport::CameraProjection::orthographic);
+      return;
+
     default:
       if (!ui.mViewportXYZ->hasFocus()) ui.mViewportXYZ->keyPressEvent(event);
       return;

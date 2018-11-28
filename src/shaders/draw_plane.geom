@@ -19,6 +19,8 @@ uniform float planeThresholdNormal;
 uniform float planeDirectionNormal;
 uniform mat4 plane_pose;
 
+uniform vec4 plane_color;
+
 uniform vec2 tilePos;
 uniform float tileSize;
 
@@ -35,9 +37,9 @@ void main() {
     vec4 u = normalize(vec4(n.y - n.z, -n.x, n.x, 0.0f));
     vec4 v = vec4(normalize(cross(n.xyz, u.xyz)), 0.0f); 
   
-    color = vec4(0, 0, 1, 0.5);
+    color = plane_color;
     
-    float radius = 10.0;
+    float radius = 12.0;
     
     vec4 ru = radius * u;
     vec4 rv = radius * v;
