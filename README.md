@@ -48,7 +48,7 @@ git clone https://github.com/ros/catkin.git
 Clone the repository in your catkin workspace:
 ```bash
 cd ~/catkin_ws/src
-git clone https://github.com/jbehley/point_labeler.git
+git clone https://github.com/cagcoach/point_labeler.git
 ```
 Download the additional dependencies:
 ```bash
